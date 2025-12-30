@@ -1,0 +1,31 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# AI assistant instructions (keep private)
+CLAUDE.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS-specific files
+Thumbs.db
+*.log
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+dist-ssr/
+build/
+*.local
+
+# Docker volumes and data
+postgres_data/

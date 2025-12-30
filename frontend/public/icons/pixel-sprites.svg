@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <defs>
+    <!-- Document Icons -->
+    <symbol id="icon-document" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M6 2h8l4 4v14H6V2z"/>
+      <path fill="currentColor" opacity="0.3" d="M14 2v4h4l-4-4z"/>
+      <rect x="8" y="10" width="8" height="2" fill="currentColor" opacity="0.6"/>
+      <rect x="8" y="14" width="6" height="2" fill="currentColor" opacity="0.6"/>
+    </symbol>
+
+    <symbol id="icon-kanban" viewBox="0 0 24 24">
+      <rect x="2" y="4" width="6" height="16" fill="currentColor"/>
+      <rect x="9" y="4" width="6" height="10" fill="currentColor" opacity="0.7"/>
+      <rect x="16" y="4" width="6" height="14" fill="currentColor" opacity="0.5"/>
+    </symbol>
+
+    <symbol id="icon-plus" viewBox="0 0 24 24">
+      <rect x="10" y="4" width="4" height="16" fill="currentColor"/>
+      <rect x="4" y="10" width="16" height="4" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-trash" viewBox="0 0 24 24">
+      <rect x="7" y="6" width="10" height="2" fill="currentColor"/>
+      <rect x="8" y="8" width="8" height="12" fill="currentColor"/>
+      <rect x="9" y="4" width="6" height="2" fill="currentColor"/>
+      <rect x="10" y="10" width="2" height="8" fill="currentColor" opacity="0.3"/>
+      <rect x="14" y="10" width="2" height="8" fill="currentColor" opacity="0.3"/>
+    </symbol>
+
+    <symbol id="icon-back-arrow" viewBox="0 0 24 24">
+      <rect x="8" y="11" width="12" height="2" fill="currentColor"/>
+      <rect x="6" y="9" width="2" height="2" fill="currentColor"/>
+      <rect x="6" y="13" width="2" height="2" fill="currentColor"/>
+      <rect x="4" y="11" width="2" height="2" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-home" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 4l-8 6v10h6v-6h4v6h6V10l-8-6z"/>
+    </symbol>
+
+    <!-- Text Editor Icons -->
+    <symbol id="icon-bold" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M6 4h8c2 0 4 1.5 4 3.5s-1 3-3 3.5c2.5 0.5 4 2 4 4s-2 4-5 4H6V4z"/>
+      <rect x="8" y="7" width="6" height="2" fill="currentColor" opacity="0.3"/>
+      <rect x="8" y="13" width="7" height="2" fill="currentColor" opacity="0.3"/>
+    </symbol>
+
+    <symbol id="icon-italic" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M10 4h8v3h-2.5l-3 10H15v3H7v-3h2.5l3-10H10V4z"/>
+    </symbol>
+
+    <symbol id="icon-h1" viewBox="0 0 24 24">
+      <rect x="4" y="6" width="2" height="12" fill="currentColor"/>
+      <rect x="4" y="11" width="6" height="2" fill="currentColor"/>
+      <rect x="8" y="6" width="2" height="12" fill="currentColor"/>
+      <rect x="15" y="8" width="2" height="10" fill="currentColor"/>
+      <rect x="13" y="8" width="2" height="3" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-h2" viewBox="0 0 24 24">
+      <rect x="4" y="6" width="2" height="12" fill="currentColor"/>
+      <rect x="4" y="11" width="6" height="2" fill="currentColor"/>
+      <rect x="8" y="6" width="2" height="12" fill="currentColor"/>
+      <path fill="currentColor" d="M14 8h4v2h-2v2h2v2h-4v2h6v-2h-2v-2h2v-2h-2V8h2V6h-6v2z"/>
+    </symbol>
+
+    <symbol id="icon-bullet-list" viewBox="0 0 24 24">
+      <rect x="4" y="6" width="3" height="3" fill="currentColor"/>
+      <rect x="9" y="7" width="11" height="2" fill="currentColor"/>
+      <rect x="4" y="11" width="3" height="3" fill="currentColor"/>
+      <rect x="9" y="12" width="11" height="2" fill="currentColor"/>
+      <rect x="4" y="16" width="3" height="3" fill="currentColor"/>
+      <rect x="9" y="17" width="11" height="2" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-numbered-list" viewBox="0 0 24 24">
+      <text x="4" y="9" font-size="8" font-weight="bold" fill="currentColor">1</text>
+      <rect x="9" y="7" width="11" height="2" fill="currentColor"/>
+      <text x="4" y="14" font-size="8" font-weight="bold" fill="currentColor">2</text>
+      <rect x="9" y="12" width="11" height="2" fill="currentColor"/>
+      <text x="4" y="19" font-size="8" font-weight="bold" fill="currentColor">3</text>
+      <rect x="9" y="17" width="11" height="2" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-undo" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M8 8V4l-6 6 6 6v-4h6c2 0 4 2 4 4v2h2v-2c0-3.3-2.7-6-6-6H8z"/>
+    </symbol>
+
+    <symbol id="icon-redo" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M16 8V4l6 6-6 6v-4h-6c-3.3 0-6 2.7-6 6v2H2v-2c0-4.4 3.6-8 8-8h6z"/>
+    </symbol>
+
+    <!-- Status Icons -->
+    <symbol id="icon-checkmark" viewBox="0 0 24 24">
+      <rect x="4" y="12" width="2" height="2" fill="currentColor"/>
+      <rect x="6" y="14" width="2" height="2" fill="currentColor"/>
+      <rect x="8" y="16" width="2" height="2" fill="currentColor"/>
+      <rect x="10" y="14" width="2" height="2" fill="currentColor"/>
+      <rect x="12" y="12" width="2" height="2" fill="currentColor"/>
+      <rect x="14" y="10" width="2" height="2" fill="currentColor"/>
+      <rect x="16" y="8" width="2" height="2" fill="currentColor"/>
+      <rect x="18" y="6" width="2" height="2" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-sync-arrows" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 4V2l-4 4 4 4V8c3.3 0 6 2.7 6 6h2c0-4.4-3.6-8-8-8z"/>
+      <path fill="currentColor" d="M12 20v2l4-4-4-4v2c-3.3 0-6-2.7-6-6H4c0 4.4 3.6 8 8 8z"/>
+    </symbol>
+
+    <symbol id="icon-spinner" viewBox="0 0 24 24">
+      <rect x="11" y="2" width="2" height="6" fill="currentColor"/>
+      <rect x="11" y="16" width="2" height="6" fill="currentColor" opacity="0.3"/>
+      <rect x="2" y="11" width="6" height="2" fill="currentColor" opacity="0.5"/>
+      <rect x="16" y="11" width="6" height="2" fill="currentColor" opacity="0.7"/>
+      <rect x="5" y="5" width="3" height="3" fill="currentColor" opacity="0.8"/>
+      <rect x="16" y="16" width="3" height="3" fill="currentColor" opacity="0.4"/>
+      <rect x="5" y="16" width="3" height="3" fill="currentColor" opacity="0.6"/>
+      <rect x="16" y="5" width="3" height="3" fill="currentColor" opacity="0.9"/>
+    </symbol>
+
+    <symbol id="icon-connected" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8" fill="currentColor"/>
+      <circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.5"/>
+    </symbol>
+
+    <symbol id="icon-disconnected" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.3"/>
+      <rect x="6" y="11" width="12" height="2" fill="currentColor" transform="rotate(45 12 12)"/>
+    </symbol>
+
+    <!-- Decorative Sprites -->
+    <symbol id="icon-sparkle" viewBox="0 0 24 24">
+      <rect x="11" y="4" width="2" height="6" fill="currentColor"/>
+      <rect x="11" y="14" width="2" height="6" fill="currentColor"/>
+      <rect x="4" y="11" width="6" height="2" fill="currentColor"/>
+      <rect x="14" y="11" width="6" height="2" fill="currentColor"/>
+      <rect x="7" y="7" width="2" height="2" fill="currentColor"/>
+      <rect x="15" y="7" width="2" height="2" fill="currentColor"/>
+      <rect x="7" y="15" width="2" height="2" fill="currentColor"/>
+      <rect x="15" y="15" width="2" height="2" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-gem" viewBox="0 0 24 24">
+      <path fill="#FF6EC7" d="M12 4l-8 6 8 10 8-10-8-6z"/>
+      <path fill="#FFD23F" opacity="0.7" d="M12 4l-4 3 4 5 4-5-4-3z"/>
+      <path fill="#00D9FF" opacity="0.5" d="M8 10l4 10v-8l-4-2z"/>
+      <path fill="#8B4FB9" opacity="0.5" d="M16 10l-4 10v-8l4-2z"/>
+    </symbol>
+
+    <symbol id="icon-orb" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8" fill="#8B4FB9"/>
+      <circle cx="10" cy="10" r="3" fill="#FF6EC7" opacity="0.6"/>
+      <circle cx="14" cy="14" r="2" fill="#00D9FF" opacity="0.4"/>
+    </symbol>
+
+    <symbol id="icon-wand" viewBox="0 0 24 24">
+      <rect x="3" y="17" width="14" height="3" fill="currentColor" transform="rotate(-45 10 18.5)"/>
+      <rect x="16" y="4" width="2" height="2" fill="#FFD23F"/>
+      <rect x="18" y="6" width="2" height="2" fill="#FF6EC7"/>
+      <rect x="14" y="6" width="2" height="2" fill="#00D9FF"/>
+      <rect x="16" y="8" width="2" height="2" fill="#8EF048"/>
+    </symbol>
+
+    <symbol id="icon-scroll" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M6 4h12v2h-2v12h2v2H6v-2h2V6H6V4z"/>
+      <rect x="10" y="8" width="6" height="2" fill="currentColor" opacity="0.3"/>
+      <rect x="10" y="12" width="4" height="2" fill="currentColor" opacity="0.3"/>
+    </symbol>
+
+    <symbol id="icon-chest" viewBox="0 0 24 24">
+      <rect x="4" y="10" width="16" height="10" fill="#FF8E3C"/>
+      <rect x="4" y="8" width="16" height="2" fill="#FFD23F"/>
+      <rect x="11" y="13" width="2" height="4" fill="#FFD23F"/>
+      <circle cx="12" cy="15" r="1" fill="#4A1B6F"/>
+    </symbol>
+
+    <symbol id="icon-potion" viewBox="0 0 24 24">
+      <rect x="10" y="4" width="4" height="3" fill="currentColor"/>
+      <path fill="#FF6EC7" d="M8 7h8v2h-1v9H9V9H8V7z"/>
+      <rect x="9" y="11" width="6" height="5" fill="#00D9FF" opacity="0.6"/>
+    </symbol>
+
+    <symbol id="icon-shield" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 2l-8 4v6c0 5 3.6 9.2 8 10 4.4-0.8 8-5 8-10V6l-8-4z"/>
+      <path fill="currentColor" opacity="0.3" d="M12 4l-6 3v5c0 3.7 2.7 6.9 6 7.5V4z"/>
+    </symbol>
+
+    <symbol id="icon-sword" viewBox="0 0 24 24">
+      <rect x="3" y="15" width="4" height="4" fill="currentColor"/>
+      <rect x="7" y="11" width="2" height="2" fill="currentColor"/>
+      <rect x="9" y="9" width="2" height="2" fill="currentColor"/>
+      <rect x="11" y="7" width="10" height="2" fill="currentColor"/>
+      <rect x="19" y="5" width="2" height="2" fill="currentColor"/>
+      <rect x="19" y="9" width="2" height="2" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="icon-crown" viewBox="0 0 24 24">
+      <path fill="#FFD23F" d="M4 16h16v2H4v-2z"/>
+      <path fill="#FFD23F" d="M4 10l4 4 4-6 4 6 4-4v6H4v-6z"/>
+      <circle cx="6" cy="8" r="2" fill="#FF6EC7"/>
+      <circle cx="12" cy="4" r="2" fill="#FF6EC7"/>
+      <circle cx="18" cy="8" r="2" fill="#FF6EC7"/>
+    </symbol>
+
+    <symbol id="icon-user" viewBox="0 0 24 24">
+      <rect x="8" y="4" width="8" height="8" fill="currentColor"/>
+      <path fill="currentColor" d="M6 14h12l2 6H4l2-6z"/>
+    </symbol>
+
+    <symbol id="icon-online-dot" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="6" fill="#8EF048"/>
+      <circle cx="10" cy="10" r="2" fill="#FFFFFF" opacity="0.6"/>
+    </symbol>
+  </defs>
+</svg>
