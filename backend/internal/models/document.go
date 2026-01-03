@@ -14,13 +14,16 @@ const (
 )
 
 type Document struct {
-		ID        uuid.UUID    `json:"id"`
-  	Name      string       `json:"name"`
-  	Type      DocumentType `json:"type"`
-  	YjsState  []byte       `json:"-"` // Don't expose binary data in JSON
-  	CreatedAt time.Time    `json:"created_at"`
-  	UpdatedAt time.Time    `json:"updated_at"`
+    ID        uuid.UUID     `json:"id"`
+    Name      string        `json:"name"`
+    Type      DocumentType  `json:"type"`
+    YjsState  []byte        `json:"-"`
+    OwnerID   *uuid.UUID    `json:"owner_id"` // NEW
+    Is_Public bool          `json:"is_public"`
+    CreatedAt time.Time     `json:"created_at"`
+    UpdatedAt time.Time     `json:"updated_at"`
 }
+
 
 type CreateDocumentRequest struct {
   	Name string       `json:"name" binding:"required"`

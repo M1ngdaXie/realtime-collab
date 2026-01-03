@@ -1,4 +1,5 @@
 import { IndexeddbPersistence } from "y-indexeddb";
+import { Awareness } from "y-protocols/awareness";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 import { documentsApi } from "../api/document";
@@ -9,7 +10,7 @@ export interface YjsProviders {
   ydoc: Y.Doc;
   websocketProvider: WebsocketProvider;
   indexeddbProvider: IndexeddbPersistence;
-  awareness: any;
+  awareness: Awareness;
 }
 
 export const createYjsDocument = async (documentId: string): Promise<YjsProviders> => {
