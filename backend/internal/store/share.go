@@ -11,8 +11,15 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateDocumentShare creates a new share
-func (s *PostgresStore) CreateDocumentShare(ctx context.Context, documentID, userID uuid.UUID, permission string, createdBy *uuid.UUID) (*models.DocumentShare, error) {
+// CreateDocumentShare creates a new share or updates existing one
+// Returns the share and a boolean indicating if it was newly created (true) or updated (false)
+func (s *PostgresStore) CreateDocumentShare(ctx context.Context, documentID, userID uuid.UUID, permission string, createdBy *uuid.UUID) (*models.DocumentShare, bool, error) {
+    // First check if share already exists
+    var existingID uuid.UUID
+    checkQuery := `SELECT id FROM document_shares WHERE document_id = $1 AND user_id = $2`
+    err := s.db.QueryRowContext(ctx, checkQuery, documentID, userID).Scan(&existingID)
+    isNewShare := err != nil // If error (not found), it's a new share
+
     query := `
         INSERT INTO document_shares (document_id, user_id, permission, created_by)
         VALUES ($1, $2, $3, $4)
@@ -21,15 +28,15 @@ func (s *PostgresStore) CreateDocumentShare(ctx context.Context, documentID, use
     `
 
     var share models.DocumentShare
-    err := s.db.QueryRowContext(ctx, query, documentID, userID, permission, createdBy).Scan(
+    err = s.db.QueryRowContext(ctx, query, documentID, userID, permission, createdBy).Scan(
         &share.ID, &share.DocumentID, &share.UserID, &share.Permission,
         &share.CreatedAt, &share.CreatedBy,
     )
     if err != nil {
-        return nil, err
+        return nil, false, err
     }
 
-    return &share, nil
+    return &share, isNewShare, nil
 }
 
 // ListDocumentShares lists all shares for a document

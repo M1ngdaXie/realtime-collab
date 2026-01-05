@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -158,8 +157,9 @@ func GetUserFromContext(c *gin.Context) *uuid.UUID {
 }
 
 // ValidateToken validates a JWT token and returns user ID, name, and avatar URL from JWT claims
+// STATELESS: No database lookup - relies entirely on JWT signature and expiration
 func (m *AuthMiddleware) ValidateToken(tokenString string) (*uuid.UUID, string, string, error) {
-	// Parse and validate JWT
+	// Parse and validate JWT signature and expiration
 	claims, err := ValidateJWT(tokenString, m.jwtSecret)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("invalid token: %w", err)
@@ -171,23 +171,12 @@ func (m *AuthMiddleware) ValidateToken(tokenString string) (*uuid.UUID, string, 
 		return nil, "", "", fmt.Errorf("invalid user ID in token: %w", err)
 	}
 
-	// Get session from database by token (for revocation capability)
-	session, err := m.store.GetSessionByToken(context.Background(), tokenString)
-	if err != nil {
-		return nil, "", "", fmt.Errorf("session not found: %w", err)
-	}
-
-	// Verify session UserID matches JWT Subject
-	if session.UserID != userID {
-		return nil, "", "", fmt.Errorf("session ID mismatch")
-	}
-
 	// Extract avatar URL from claims (handle nil gracefully)
 	avatarURL := ""
 	if claims.AvatarURL != nil {
 		avatarURL = *claims.AvatarURL
 	}
 
-	// Return user data from JWT claims - no DB query needed!
+	// Return user data from JWT claims - ZERO database queries!
 	return &userID, claims.Name, avatarURL, nil
 }

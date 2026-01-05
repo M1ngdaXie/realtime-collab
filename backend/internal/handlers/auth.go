@@ -284,7 +284,11 @@ func (h *AuthHandler) createSessionAndJWT(c *gin.Context, user *models.User) (st
 }
 func generateStateOauthCookie(w http.ResponseWriter) string {
     b := make([]byte, 16)
-    rand.Read(b)
+n, err := rand.Read(b)
+if err != nil || n != 16 {
+    fmt.Printf("Failed to generate random state: %v\n", err)
+    return ""  // Critical for CSRF security
+}
     state := base64.URLEncoding.EncodeToString(b)
 
     cookie := http.Cookie{

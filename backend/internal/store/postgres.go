@@ -34,7 +34,7 @@ type Store interface {
     CleanupExpiredSessions(ctx context.Context) error
     
     // Share operations
-    CreateDocumentShare(ctx context.Context, documentID, userID uuid.UUID, permission string, createdBy *uuid.UUID) (*models.DocumentShare, error)
+    CreateDocumentShare(ctx context.Context, documentID, userID uuid.UUID, permission string, createdBy *uuid.UUID) (*models.DocumentShare, bool, error)
     ListDocumentShares(ctx context.Context, documentID uuid.UUID) ([]models.DocumentShareWithUser, error)
     DeleteDocumentShare(ctx context.Context, documentID, userID uuid.UUID) error
     CanViewDocument(ctx context.Context, documentID, userID uuid.UUID) (bool, error)
@@ -105,7 +105,7 @@ func (s *PostgresStore) CreateDocument(name string, docType models.DocumentType)
   	doc := &models.Document{}
 
   	query := `
-  		SELECT id, name, type, yjs_state, created_at, updated_at
+  		SELECT id, name, type, yjs_state, owner_id, is_public, created_at, updated_at
   		FROM documents
   		WHERE id = $1
   	`
@@ -115,6 +115,8 @@ func (s *PostgresStore) CreateDocument(name string, docType models.DocumentType)
   		&doc.Name,
   		&doc.Type,
   		&doc.YjsState,
+  		&doc.OwnerID,
+  		&doc.Is_Public,
   		&doc.CreatedAt,
   		&doc.UpdatedAt,
   	)
@@ -261,7 +263,7 @@ func (s *PostgresStore) CreateDocumentWithOwner(name string, docType models.Docu
 // ListUserDocuments lists documents owned by or shared with a user
 func (s *PostgresStore) ListUserDocuments(ctx context.Context, userID uuid.UUID) ([]models.Document, error) {
 	query := `
-		SELECT DISTINCT d.id, d.name, d.type, d.owner_id, d.created_at, d.updated_at
+		SELECT DISTINCT d.id, d.name, d.type, d.owner_id, d.is_public, d.created_at, d.updated_at
 		FROM documents d
 		LEFT JOIN document_shares ds ON d.id = ds.document_id
 		WHERE d.owner_id = $1 OR ds.user_id = $1
@@ -277,7 +279,8 @@ func (s *PostgresStore) ListUserDocuments(ctx context.Context, userID uuid.UUID)
 	var documents []models.Document
 	for rows.Next() {
 		var doc models.Document
-		err := rows.Scan(&doc.ID, &doc.Name, &doc.Type, &doc.OwnerID, &doc.CreatedAt, &doc.UpdatedAt)
+		// Note: yjs_state is NOT included in list to avoid performance issues
+		err := rows.Scan(&doc.ID, &doc.Name, &doc.Type, &doc.OwnerID, &doc.Is_Public, &doc.CreatedAt, &doc.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan document: %w", err)
 		}

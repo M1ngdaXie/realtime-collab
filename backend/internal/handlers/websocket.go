@@ -65,7 +65,7 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 	// Check for JWT token in query parameter
 	jwtToken := c.Query("token")
 	if jwtToken != "" {
-		// Validate JWT and get user data from token claims (no DB query!)
+		// Validate JWT signature and expiration - STATELESS, no DB query!
 		jwtSecret := os.Getenv("JWT_SECRET")
 		if jwtSecret == "" {
 			log.Println("JWT_SECRET not configured")
@@ -73,16 +73,17 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 			return
 		}
 
-		authMiddleware := auth.NewAuthMiddleware(wsh.store, jwtSecret)
-		uid, name, avatar, err := authMiddleware.ValidateToken(jwtToken)
-		if err == nil && uid != nil {
-			// User data comes directly from JWT claims - no DB query needed!
-			userID = uid
-			userName = name
-			if avatar != "" {
-				userAvatar = &avatar
+		// Direct JWT validation - fast path (~1ms)
+		claims, err := auth.ValidateJWT(jwtToken, jwtSecret)
+		if err == nil {
+			// Extract user data from JWT claims
+			uid, parseErr := uuid.Parse(claims.Subject)
+			if parseErr == nil {
+				userID = &uid
+				userName = claims.Name
+				userAvatar = claims.AvatarURL
+				authenticated = true
 			}
-			authenticated = true
 		}
 	}
 

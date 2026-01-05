@@ -22,24 +22,22 @@ import (
 
   // CreateDocument creates a new document (requires auth)
 func (h *DocumentHandler) CreateDocument(c *gin.Context) {
-	fmt.Println("getting userId right now.... ")
 	userID := auth.GetUserFromContext(c)
-	fmt.Println(userID)
 	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondUnauthorized(c, "Authentication required")
 		return
 	}
 
 	var req models.CreateDocumentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondWithValidationError(c, err)
 		return
 	}
 
 	// Create document with owner_id
 	doc, err := h.store.CreateDocumentWithOwner(req.Name, req.Type, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create document: %v", err)})
+		respondInternalError(c, "Failed to create document", err)
 		return
 	}
 
@@ -48,19 +46,17 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 
   func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 	userID := auth.GetUserFromContext(c)
-
-	var docs []models.Document
-	var err error
-
-	if userID != nil {
-		// Authenticated: show owned + shared documents
-		docs, err = h.store.ListUserDocuments(c.Request.Context(), *userID)
-	} else {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("we dont know you: %v", err)})
+	fmt.Println("Getting userId, which is : ")
+	fmt.Println(userID)
+	if userID == nil {
+		respondUnauthorized(c, "Authentication required to list documents")
+		return
 	}
 
+	// Authenticated: show owned + shared documents
+	docs, err := h.store.ListUserDocuments(c.Request.Context(), *userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list documents"})
+		respondInternalError(c, "Failed to list documents", err)
 		return
 	}
 
@@ -74,7 +70,14 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
   func (h *DocumentHandler) GetDocument(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondBadRequest(c, "Invalid document ID format")
+		return
+	}
+
+	// First, check if document exists (404 takes precedence over 403)
+	doc, err := h.store.GetDocument(id)
+	if err != nil {
+		respondNotFound(c, "document")
 		return
 	}
 
@@ -84,22 +87,19 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	if userID != nil {
 		canView, err := h.store.CanViewDocument(c.Request.Context(), id, *userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check permissions"})
+			respondInternalError(c, "Failed to check permissions", err)
 			return
 		}
 		if !canView {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			respondForbidden(c, "Access denied")
 			return
 		}
-	}else{
-		c.JSON("this file is not public")
-		return
-	}
-
-	doc, err := h.store.GetDocument(id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Document not found"})
-		return
+	} else {
+		// Unauthenticated users can only access public documents
+		if !doc.Is_Public {
+			respondForbidden(c, "This document is not public. Please sign in to access.")
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, doc)
@@ -109,7 +109,7 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 func (h *DocumentHandler) GetDocumentState(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondBadRequest(c, "Invalid document ID format")
 		return
 	}
 
@@ -119,57 +119,70 @@ func (h *DocumentHandler) GetDocumentState(c *gin.Context) {
 	if userID != nil {
 		canView, err := h.store.CanViewDocument(c.Request.Context(), id, *userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check permissions"})
+			respondInternalError(c, "Failed to check permissions", err)
 			return
 		}
 		if !canView {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			respondForbidden(c, "Access denied")
 			return
 		}
 	}
 
 	doc, err := h.store.GetDocument(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Document not found"})
+		respondNotFound(c, "document")
 		return
 	}
 
-	c.Data(http.StatusOK, "application/octet-stream", doc.YjsState)
+	// Return empty byte slice if state is nil (new document)
+	state := doc.YjsState
+	if state == nil {
+		state = []byte{}
+	}
+
+	c.Data(http.StatusOK, "application/octet-stream", state)
 }
 
   // UpdateDocumentState updates document state (requires edit permission)
 func (h *DocumentHandler) UpdateDocumentState(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondBadRequest(c, "Invalid document ID format")
 		return
 	}
 
 	userID := auth.GetUserFromContext(c)
 	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondUnauthorized(c, "Authentication required")
+		return
+	}
+
+	// First, check if document exists (404 takes precedence over 403)
+	_, err = h.store.GetDocument(id)
+	if err != nil {
+		respondNotFound(c, "document")
 		return
 	}
 
 	// Check edit permission
 	canEdit, err := h.store.CanEditDocument(c.Request.Context(), id, *userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check permissions"})
+		respondInternalError(c, "Failed to check permissions", err)
 		return
 	}
 	if !canEdit {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Edit access denied"})
+		respondForbidden(c, "Edit access denied")
 		return
 	}
 
 	var req models.UpdateStateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondWithValidationError(c, err)
 		return
 	}
 
 	if err := h.store.UpdateDocumentState(id, req.State); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update state"})
+		respondInternalError(c, "Failed to update state", err)
 		return
 	}
 
@@ -180,29 +193,36 @@ func (h *DocumentHandler) UpdateDocumentState(c *gin.Context) {
 func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondBadRequest(c, "Invalid document ID format")
 		return
 	}
 
 	userID := auth.GetUserFromContext(c)
 	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondUnauthorized(c, "Authentication required")
+		return
+	}
+
+	// First, check if document exists (404 takes precedence over 403)
+	_, err = h.store.GetDocument(id)
+	if err != nil {
+		respondNotFound(c, "document")
 		return
 	}
 
 	// Check ownership
 	isOwner, err := h.store.IsDocumentOwner(c.Request.Context(), id, *userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check ownership"})
+		respondInternalError(c, "Failed to check ownership", err)
 		return
 	}
 	if !isOwner {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only owner can delete documents"})
+		respondForbidden(c, "Only document owner can delete documents")
 		return
 	}
 
 	if err := h.store.DeleteDocument(id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete document"})
+		respondInternalError(c, "Failed to delete document", err)
 		return
 	}
 

@@ -24,42 +24,42 @@ func NewShareHandler(store store.Store) *ShareHandler {
 func (h *ShareHandler) CreateShare(c *gin.Context) {
 	userID := auth.GetUserFromContext(c)
 	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondUnauthorized(c, "Authentication required")
 		return
 	}
 
 	documentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondInvalidID(c, "Invalid document ID format")
 		return
 	}
 
 	// Check if user is owner
 	isOwner, err := h.store.IsDocumentOwner(c.Request.Context(), documentID, *userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check ownership"})
+		respondInternalError(c, "Failed to check ownership", err)
 		return
 	}
 	if !isOwner {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only owner can share documents"})
+		respondForbidden(c, "Only document owner can share documents")
 		return
 	}
 
 	var req models.CreateShareRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondWithValidationError(c, err)
 		return
 	}
 
 	// Get user by email
 	targetUser, err := h.store.GetUserByEmail(c.Request.Context(), req.UserEmail)
 	if err != nil || targetUser == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		respondNotFound(c, "user")
 		return
 	}
 
-	// Create share
-	share, err := h.store.CreateDocumentShare(
+	// Create or update share
+	share, isNew, err := h.store.CreateDocumentShare(
 		c.Request.Context(),
 		documentID,
 		targetUser.ID,
@@ -67,41 +67,46 @@ func (h *ShareHandler) CreateShare(c *gin.Context) {
 		userID,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share"})
+		respondInternalError(c, "Failed to create share", err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, share)
+	// Return 201 for new share, 200 for updated share
+	statusCode := http.StatusOK
+	if isNew {
+		statusCode = http.StatusCreated
+	}
+	c.JSON(statusCode, share)
 }
 
 // ListShares lists all shares for a document
 func (h *ShareHandler) ListShares(c *gin.Context) {
 	userID := auth.GetUserFromContext(c)
 	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondUnauthorized(c, "Authentication required")
 		return
 	}
 
 	documentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondInvalidID(c, "Invalid document ID format")
 		return
 	}
 
 	// Check if user is owner
 	isOwner, err := h.store.IsDocumentOwner(c.Request.Context(), documentID, *userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check ownership"})
+		respondInternalError(c, "Failed to check ownership", err)
 		return
 	}
 	if !isOwner {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only owner can view shares"})
+		respondForbidden(c, "Only document owner can view shares")
 		return
 	}
 
 	shares, err := h.store.ListDocumentShares(c.Request.Context(), documentID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list shares"})
+		respondInternalError(c, "Failed to list shares", err)
 		return
 	}
 
@@ -112,63 +117,63 @@ func (h *ShareHandler) ListShares(c *gin.Context) {
 func (h *ShareHandler) DeleteShare(c *gin.Context) {
 	userID := auth.GetUserFromContext(c)
 	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondUnauthorized(c, "Authentication required")
 		return
 	}
 
 	documentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondInvalidID(c, "Invalid document ID format")
 		return
 	}
 
 	targetUserID, err := uuid.Parse(c.Param("userId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		respondInvalidID(c, "Invalid user ID format")
 		return
 	}
 
 	// Check if user is owner
 	isOwner, err := h.store.IsDocumentOwner(c.Request.Context(), documentID, *userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check ownership"})
+		respondInternalError(c, "Failed to check ownership", err)
 		return
 	}
 	if !isOwner {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only owner can delete shares"})
+		respondForbidden(c, "Only document owner can delete shares")
 		return
 	}
 
 	err = h.store.DeleteDocumentShare(c.Request.Context(), documentID, targetUserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete share"})
+		respondInternalError(c, "Failed to delete share", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Share deleted successfully"})
+	c.Status(204)
 }
 // CreateShareLink generates a public share link
 func (h *ShareHandler) CreateShareLink(c *gin.Context) {
 	documentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondInvalidID(c, "Invalid document ID format")
 		return
 	}
 
 	userID := auth.GetUserFromContext(c)
 	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondUnauthorized(c, "Authentication required")
 		return
 	}
 
 	// Check if user is owner
 	isOwner, err := h.store.IsDocumentOwner(c.Request.Context(), documentID, *userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check ownership"})
+		respondInternalError(c, "Failed to check ownership", err)
 		return
 	}
 	if !isOwner {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only document owner can create share links"})
+		respondForbidden(c, "Only document owner can create share links")
 		return
 	}
 
@@ -177,14 +182,14 @@ func (h *ShareHandler) CreateShareLink(c *gin.Context) {
 		Permission string `json:"permission" binding:"required,oneof=view edit"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Permission must be 'view' or 'edit'"})
+		respondWithValidationError(c, err)
 		return
 	}
 
 	// Generate share token
 	token, err := h.store.GenerateShareToken(c.Request.Context(), documentID, req.Permission)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate share link"})
+		respondInternalError(c, "Failed to generate share link", err)
 		return
 	}
 
@@ -207,34 +212,34 @@ func (h *ShareHandler) CreateShareLink(c *gin.Context) {
 func (h *ShareHandler) GetShareLink(c *gin.Context) {
 	documentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondInvalidID(c, "Invalid document ID format")
 		return
 	}
 
 	userID := auth.GetUserFromContext(c)
 	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondUnauthorized(c, "Authentication required")
 		return
 	}
 
 	// Check if user is owner
 	isOwner, err := h.store.IsDocumentOwner(c.Request.Context(), documentID, *userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check ownership"})
+		respondInternalError(c, "Failed to check ownership", err)
 		return
 	}
 	if !isOwner {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only document owner can view share links"})
+		respondForbidden(c, "Only document owner can view share links")
 		return
 	}
 
 	token, exists, err := h.store.GetShareToken(c.Request.Context(), documentID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get share link"})
+		respondInternalError(c, "Failed to get share link", err)
 		return
 	}
 	if !exists {
-		c.JSON(http.StatusNotFound, gin.H{"error": "No public share link exists"})
+		respondNotFound(c, "share link")
 		return
 	}
 
@@ -255,32 +260,33 @@ func (h *ShareHandler) GetShareLink(c *gin.Context) {
 func (h *ShareHandler) RevokeShareLink(c *gin.Context) {
 	documentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid document ID"})
+		respondInvalidID(c, "Invalid document ID format")
 		return
 	}
 
 	userID := auth.GetUserFromContext(c)
 	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondUnauthorized(c, "Authentication required")
 		return
 	}
 
 	// Check if user is owner
 	isOwner, err := h.store.IsDocumentOwner(c.Request.Context(), documentID, *userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check ownership"})
+		respondInternalError(c, "Failed to check ownership", err)
 		return
 	}
 	if !isOwner {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only document owner can revoke share links"})
+		respondForbidden(c, "Only document owner can revoke share links")
 		return
 	}
 
 	err = h.store.RevokeShareToken(c.Request.Context(), documentID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke share link"})
+		respondInternalError(c, "Failed to revoke share link", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Share link revoked"})
+	// c.JSON(http.StatusOK, gin.H{"message": "Share link revoked successfully"})
+	c.Status(204)
 }
