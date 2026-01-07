@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { DocumentType } from "../api/document.ts";
 import { documentsApi } from "../api/document.ts";
+import Navbar from "../components/Navbar.tsx";
 import PixelIcon from "../components/PixelIcon/PixelIcon.tsx";
 import FloatingGem from "../components/PixelSprites/FloatingGem.tsx";
 
@@ -57,12 +58,14 @@ const Home = () => {
   }
 
   return (
-    <div className="home-page" style={{ position: 'relative' }}>
-      <FloatingGem position={{ top: '20px', right: '40px' }} delay={0} size={40} />
-      <FloatingGem position={{ top: '60px', left: '60px' }} delay={1.5} size={32} />
-      <FloatingGem position={{ bottom: '100px', right: '100px' }} delay={3} size={36} />
+    <>
+      <Navbar />
+      <div className="home-page" style={{ position: 'relative' }}>
+        <FloatingGem position={{ top: '20px', right: '40px' }} delay={0} size={40} />
+        <FloatingGem position={{ top: '60px', left: '60px' }} delay={1.5} size={32} />
+        <FloatingGem position={{ bottom: '100px', right: '100px' }} delay={3} size={36} />
 
-      <h1>My Documents</h1>
+        <h1>My Documents</h1>
 
       <div className="create-buttons">
         <button onClick={() => createDocument("editor")} disabled={creating}>
@@ -105,7 +108,8 @@ const Home = () => {
           ))
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

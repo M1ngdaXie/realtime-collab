@@ -1,4 +1,11 @@
 import { useEffect, useState } from "react";
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import type { YjsProviders } from "../../lib/yjs";
 import Column from "./Column.tsx";
 
@@ -20,6 +27,14 @@ export interface KanbanColumn {
 
 const KanbanBoard = ({ providers }: KanbanBoardProps) => {
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Prevent accidental drags
+      },
+    })
+  );
 
   useEffect(() => {
     const yarray = providers.ydoc.getArray<any>("kanban-columns");
@@ -93,19 +108,39 @@ const KanbanBoard = ({ providers }: KanbanBoardProps) => {
     }
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const targetColumnId = over.id as string;
+
+    // Find which column the task is currently in
+    const fromColumn = columns.find(col =>
+      col.tasks.some(task => task.id === taskId)
+    );
+
+    if (fromColumn && fromColumn.id !== targetColumnId) {
+      moveTask(fromColumn.id, targetColumnId, taskId);
+    }
+  };
+
   return (
-    <div className="kanban-board">
-      {columns.map((column) => (
-        <Column
-          key={column.id}
-          column={column}
-          onAddTask={(task) => addTask(column.id, task)}
-          onMoveTask={(taskId, toColumnId) =>
-            moveTask(column.id, toColumnId, taskId)
-          }
-        />
-      ))}
-    </div>
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div className="kanban-board">
+        {columns.map((column) => (
+          <Column
+            key={column.id}
+            column={column}
+            onAddTask={(task) => addTask(column.id, task)}
+            onMoveTask={(taskId, toColumnId) =>
+              moveTask(column.id, toColumnId, taskId)
+            }
+          />
+        ))}
+      </div>
+    </DndContext>
   );
 };
 

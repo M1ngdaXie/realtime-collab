@@ -175,13 +175,19 @@ func (h *DocumentHandler) UpdateDocumentState(c *gin.Context) {
 		return
 	}
 
-	var req models.UpdateStateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		respondWithValidationError(c, err)
+	// Read binary data directly from request body
+	state, err := c.GetRawData()
+	if err != nil {
+		respondBadRequest(c, "Failed to read request body")
 		return
 	}
 
-	if err := h.store.UpdateDocumentState(id, req.State); err != nil {
+	if len(state) == 0 {
+		respondBadRequest(c, "Empty state data")
+		return
+	}
+
+	if err := h.store.UpdateDocumentState(id, state); err != nil {
 		respondInternalError(c, "Failed to update state", err)
 		return
 	}

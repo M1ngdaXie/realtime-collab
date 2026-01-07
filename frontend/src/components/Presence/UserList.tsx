@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { Awareness } from "y-protocols/awareness";
 
 interface UserListProps {
-  awareness: any;
+  awareness: Awareness;
 }
 
 interface User {
@@ -26,6 +27,7 @@ const UserList = ({ awareness }: UserListProps) => {
             color: state.user.color,
           });
         }
+        console.log("one of the user name is" + state.user.name);
       });
 
       setUsers(userList);

@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import {
   createYjsDocument,
   destroyYjsDocument,
-  getRandomColor,
-  getRandomName,
+  getColorFromUserId,
   type YjsProviders,
 } from "../lib/yjs";
 import { useAutoSave } from "./useAutoSave";
 
-export const useYjsDocument = (documentId: string) => {
+export const useYjsDocument = (documentId: string, shareToken?: string) => {
+  const { user, token } = useAuth();
   const [providers, setProviders] = useState<YjsProviders | null>(null);
   const [synced, setSynced] = useState(false);
 
@@ -16,11 +17,36 @@ export const useYjsDocument = (documentId: string) => {
   useAutoSave(documentId, providers?.ydoc || null);
 
   useEffect(() => {
+    // Wait for auth (unless we have a share token for public access)
+    if (!shareToken && (!user || !token)) {
+      return;
+    }
+
     let mounted = true;
     let currentProviders: YjsProviders | null = null;
 
     const initializeDocument = async () => {
-      const yjsProviders = await createYjsDocument(documentId);
+      // For share token access, use placeholder user info
+      const authUser = user || {
+        id: "anonymous",
+        name: "Anonymous User",
+        avatar_url: undefined,
+      };
+      const realUser = user?.user ? user.user : user || {};
+      const currentName = realUser.name || realUser.email || "Anonymous";
+      const currentId = realUser.id;
+      const currentAvatar = realUser.avatar_url || realUser.avatar;
+      console.log("✅ [Fixed] User Name is:", currentName);
+      console.log("🔍 [Debug] Initializing Awareness with User:", authUser); // <--- 添加这行
+      const authToken = token || "";
+      console.log("authToken is " + token);
+
+      const yjsProviders = await createYjsDocument(
+        documentId,
+        { id: currentId, name: currentName, avatar_url: currentAvatar },
+        authToken,
+        shareToken
+      );
       currentProviders = yjsProviders;
 
       if (!mounted) {
@@ -28,12 +54,16 @@ export const useYjsDocument = (documentId: string) => {
         return;
       }
 
-      // Set user info for awareness
-      const userName = getRandomName();
-      const userColor = getRandomColor();
+      console.log(
+        "🔍 [Debug] Full authUser object:",
+        JSON.stringify(authUser, null, 2)
+      );
+      // Set user info for awareness with authenticated user data
       yjsProviders.awareness.setLocalStateField("user", {
-        name: userName,
-        color: userColor,
+        id: currentId,
+        name: currentName,
+        color: getColorFromUserId(currentId),
+        avatar: currentAvatar,
       });
 
       // NEW: Add awareness event logging
@@ -47,7 +77,6 @@ export const useYjsDocument = (documentId: string) => {
         removed: number[];
       }) => {
         const states = yjsProviders.awareness.getStates();
-
         added.forEach((clientId) => {
           const state = states.get(clientId);
           const user = state?.user;
@@ -95,8 +124,8 @@ export const useYjsDocument = (documentId: string) => {
       );
 
       // Log local user info
-      console.log(`[Awareness] Local user initialized: ${userName}`, {
-        color: userColor,
+      console.log(`[Awareness] Local user initialized: ${authUser.name}`, {
+        color: getColorFromUserId(authUser.id),
         clientId: yjsProviders.awareness.clientID,
       });
 
@@ -114,7 +143,7 @@ export const useYjsDocument = (documentId: string) => {
         destroyYjsDocument(currentProviders);
       }
     };
-  }, [documentId]);
+  }, [documentId, user, token, shareToken]);
 
 
   return { providers, synced };

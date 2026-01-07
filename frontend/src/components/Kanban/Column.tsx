@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import Card from "./Card.tsx";
 import type { KanbanColumn, Task } from "./KanbanBoard.tsx";
 
@@ -11,6 +13,10 @@ interface ColumnProps {
 const Column = ({ column, onAddTask }: ColumnProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+
+  const { setNodeRef, isOver } = useDroppable({
+    id: column.id,
+  });
 
   const handleAddTask = () => {
     if (newTaskTitle.trim()) {
@@ -25,12 +31,20 @@ const Column = ({ column, onAddTask }: ColumnProps) => {
   };
 
   return (
-    <div className="kanban-column">
+    <div
+      ref={setNodeRef}
+      className={`kanban-column ${isOver ? 'column-drag-over' : ''}`}
+    >
       <h3 className="column-title">{column.title}</h3>
       <div className="column-content">
-        {column.tasks.map((task) => (
-          <Card key={task.id} task={task} />
-        ))}
+        <SortableContext
+          items={column.tasks.map(t => t.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {column.tasks.map((task) => (
+            <Card key={task.id} task={task} />
+          ))}
+        </SortableContext>
 
         {isAdding ? (
           <div className="add-task-form">

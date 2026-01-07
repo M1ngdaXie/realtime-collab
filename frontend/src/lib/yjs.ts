@@ -13,7 +13,18 @@ export interface YjsProviders {
   awareness: Awareness;
 }
 
-export const createYjsDocument = async (documentId: string): Promise<YjsProviders> => {
+export interface YjsUser {
+  id: string;
+  name: string;
+  avatar_url?: string;
+}
+
+export const createYjsDocument = async (
+  documentId: string,
+  user: YjsUser,
+  token: string,
+  shareToken?: string
+): Promise<YjsProviders> => {
   // Create Yjs document
   const ydoc = new Y.Doc();
 
@@ -31,8 +42,16 @@ export const createYjsDocument = async (documentId: string): Promise<YjsProvider
   // IndexedDB persistence (offline support)
   const indexeddbProvider = new IndexeddbPersistence(documentId, ydoc);
 
-  // WebSocket provider (real-time sync)
-  const websocketProvider = new WebsocketProvider(WS_URL, documentId, ydoc);
+  // WebSocket provider (real-time sync) with auth token
+  const wsParams: { [key: string]: string } = shareToken
+    ? { share: shareToken }
+    : { token: token };
+  const websocketProvider = new WebsocketProvider(
+    WS_URL,
+    documentId,
+    ydoc,
+    { params: wsParams }
+  );
 
   // Awareness for cursors and presence
   const awareness = websocketProvider.awareness;
@@ -51,8 +70,15 @@ export const destroyYjsDocument = (providers: YjsProviders) => {
   providers.ydoc.destroy();
 };
 
-// Random color generator for users
-export const getRandomColor = () => {
+// Deterministic color generator based on user ID
+export const getColorFromUserId = (userId: string | undefined): string => {
+  // Default color if no userId
+  if (!userId) {
+    return "#718096"; // Gray for anonymous/undefined users
+  }
+
+  // Hash user ID to consistent color index
+  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const colors = [
     "#FF6B6B",
     "#4ECDC4",
@@ -63,14 +89,5 @@ export const getRandomColor = () => {
     "#BB8FCE",
     "#85C1E2",
   ];
-  return colors[Math.floor(Math.random() * colors.length)];
-};
-
-// Random name generator
-export const getRandomName = () => {
-  const adjectives = ["Happy", "Clever", "Brave", "Swift", "Kind"];
-  const animals = ["Panda", "Fox", "Wolf", "Bear", "Eagle"];
-  return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${
-    animals[Math.floor(Math.random() * animals.length)]
-  }`;
+  return colors[hash % colors.length];
 };
