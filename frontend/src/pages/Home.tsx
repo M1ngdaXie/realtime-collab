@@ -15,9 +15,10 @@ const Home = () => {
   const loadDocuments = async () => {
     try {
       const { documents } = await documentsApi.list();
-      setDocuments(documents);
+      setDocuments(documents || []);
     } catch (error) {
       console.error("Failed to load documents:", error);
+      setDocuments([]); // Set empty array on error to prevent null access
     } finally {
       setLoading(false);
     }

@@ -1,241 +1,240 @@
 # Real-Time Collaboration Platform
 
-A full-stack real-time collaborative application supporting both text editing and Kanban boards, built with React and Go. The system uses Yjs CRDTs for conflict-free synchronization and WebSockets for real-time updates.
+A full-stack real-time collaborative application supporting text editing and Kanban boards. Built with React, Go, Yjs CRDTs, and WebSockets.
 
 ## Features
 
-- **Collaborative Text Editor**: Real-time document editing with TipTap editor
+- **Collaborative Text Editor**: Real-time document editing with TipTap
 - **Collaborative Kanban Boards**: Drag-and-drop task management
-- **Real-Time Synchronization**: Instant updates across all connected clients
+- **User Authentication**: OAuth2 login (Google, GitHub)
+- **Document Sharing**: Share documents with users or via public links
 - **Offline Support**: IndexedDB persistence for offline editing
-- **User Presence**: See who's currently editing with live cursors and awareness
+- **User Presence**: Live cursors and user awareness
 
 ## Tech Stack
 
-### Frontend
-- React 19 + TypeScript
-- Vite (build tool)
-- TipTap (collaborative rich text editor)
-- Yjs (CRDT for conflict-free replication)
-- y-websocket (WebSocket sync provider)
-- y-indexeddb (offline persistence)
+**Frontend:** React 19, TypeScript, Vite, TipTap, Yjs, y-websocket, y-indexeddb
+**Backend:** Go 1.25, Gin, Gorilla WebSocket, PostgreSQL 16
+**Infrastructure:** Docker Compose
 
-### Backend
-- Go 1.25
-- Gin (web framework)
-- Gorilla WebSocket
-- PostgreSQL 16 (document storage)
-- Redis 7 (future use)
-
-### Infrastructure
-- Docker Compose
-- PostgreSQL
-- Redis
-
-## Getting Started
+## Quick Start
 
 ### Prerequisites
-
-- Node.js 18+ and npm
+- Node.js 18+, npm
 - Go 1.25+
-- Docker and Docker Compose
+- Docker & Docker Compose
 
-### Installation
+### Setup
 
-1. **Clone the repository**
+1. **Clone and configure environment**
 ```bash
-git clone <your-repo-url>
+git clone <repo-url>
 cd realtime-collab
-```
 
-2. **Set up environment variables**
-
-Create backend environment file:
-```bash
-cp backend/.env.example backend/.env
-# Edit backend/.env with your configuration
-```
-
-Create frontend environment file:
-```bash
-cp frontend/.env.example frontend/.env
-# Edit frontend/.env with your configuration (optional for local development)
-```
-
-Create root environment file for Docker:
-```bash
+# Setup environment files
 cp .env.example .env
-# Edit .env with your Docker database credentials
+cp backend/.env.example backend/.env
+
+# Edit .env files with your configuration
+# Minimum required: DATABASE_URL, JWT_SECRET
 ```
 
-3. **Start the infrastructure**
+2. **Start infrastructure**
 ```bash
 docker-compose up -d
 ```
 
-This will start PostgreSQL and Redis containers.
-
-4. **Install and run the backend**
+3. **Run backend**
 ```bash
 cd backend
 go mod download
 go run cmd/server/main.go
+# Server runs on http://localhost:8080
 ```
 
-The backend server will start on `http://localhost:8080`
-
-5. **Install and run the frontend**
+4. **Run frontend**
 ```bash
 cd frontend
 npm install
 npm run dev
-```
-
-The frontend will start on `http://localhost:5173`
-
-6. **Access the application**
-
-Open your browser and navigate to `http://localhost:5173`
-
-## Environment Variables
-
-### Backend (backend/.env)
-
-```env
-PORT=8080
-DATABASE_URL=postgres://user:password@localhost:5432/collaboration?sslmode=disable
-REDIS_URL=redis://localhost:6379
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
-```
-
-### Frontend (frontend/.env)
-
-```env
-VITE_API_URL=http://localhost:8080/api
-VITE_WS_URL=ws://localhost:8080/ws
-```
-
-### Docker Compose (.env)
-
-```env
-POSTGRES_USER=collab
-POSTGRES_PASSWORD=your_secure_password_here
-POSTGRES_DB=collaboration
+# App runs on http://localhost:5173
 ```
 
 ## Architecture
 
+### System Overview
+```
+┌─────────────┐          ┌──────────────┐          ┌─────────────┐
+│   Browser   │◄────────►│  Go Backend  │◄────────►│ PostgreSQL  │
+│             │          │              │          │             │
+│ React + Yjs │  WS+HTTP │  Gin + Hub   │   SQL    │  Documents  │
+│ TipTap      │          │  WebSocket   │          │  Users      │
+│ IndexedDB   │          │  REST API    │          │  Sessions   │
+└─────────────┘          └──────────────┘          └─────────────┘
+```
+
 ### Real-Time Collaboration Flow
+```
+Client A                    Backend Hub                 Client B
+   │                            │                          │
+   │──1. Edit document──────────►│                          │
+   │   (Yjs binary update)      │                          │
+   │                            │──2. Broadcast update────►│
+   │                            │                          │
+   │                            │◄─3. Edit document────────│
+   │◄─4. Broadcast update───────│                          │
+   │                            │                          │
+   ▼                            ▼                          ▼
+[Apply CRDT merge]         [Relay only]            [Apply CRDT merge]
+```
 
-1. Client connects to WebSocket endpoint `/ws/:documentId`
-2. WebSocket handler creates a client and registers it with the Hub
-3. Hub manages rooms (one room per document)
-4. Yjs generates binary updates on document changes
-5. Client sends updates to WebSocket
-6. Hub broadcasts updates to all clients in the same room
-7. Yjs applies updates and merges changes automatically (CRDT)
-8. IndexedDB persists state locally for offline support
-
-### API Endpoints
-
-#### REST API
-- `GET /api/documents` - List all documents
-- `POST /api/documents` - Create a new document
-- `GET /api/documents/:id` - Get document metadata
-- `GET /api/documents/:id/state` - Get document Yjs state
-- `PUT /api/documents/:id/state` - Update document Yjs state
-- `DELETE /api/documents/:id` - Delete a document
-
-#### WebSocket
-- `GET /ws/:roomId` - WebSocket connection for real-time sync
-
-#### Health Check
-- `GET /health` - Server health status
+### Authentication Flow
+```
+User                OAuth Provider          Backend              Database
+ │                        │                    │                    │
+ │──1. Click login───────►│                    │                    │
+ │◄─2. Auth page──────────│                    │                    │
+ │──3. Approve───────────►│                    │                    │
+ │                        │──4. Callback──────►│                    │
+ │                        │                    │──5. Create user───►│
+ │                        │                    │◄──────────────────│
+ │◄─6. JWT token + cookie─┤◄──────────────────│                    │
+```
 
 ## Project Structure
 
 ```
 realtime-collab/
 ├── backend/
-│   ├── cmd/server/          # Application entry point
+│   ├── cmd/server/          # Entry point
 │   ├── internal/
+│   │   ├── auth/            # JWT & OAuth middleware
 │   │   ├── handlers/        # HTTP/WebSocket handlers
-│   │   ├── hub/             # WebSocket hub (room management)
+│   │   ├── hub/             # WebSocket hub & rooms
 │   │   ├── models/          # Domain models
-│   │   └── store/           # Database layer
-│   └── scripts/             # Database initialization scripts
+│   │   └── store/           # PostgreSQL data layer
+│   └── scripts/init.sql     # Database schema
 ├── frontend/
 │   ├── src/
 │   │   ├── api/             # REST API client
 │   │   ├── components/      # React components
-│   │   ├── lib/             # Yjs integration
-│   │   ├── pages/           # Page components
-│   │   └── hooks/           # Custom React hooks
-│   └── public/              # Static assets
-└── docker-compose.yml       # Infrastructure setup
+│   │   ├── hooks/           # Custom hooks
+│   │   ├── lib/yjs.ts       # Yjs setup
+│   │   └── pages/           # Page components
+└── docker-compose.yml       # PostgreSQL & Redis
 ```
 
-## Development
+## Key Endpoints
 
-### Backend Commands
+### REST API
+- `POST /api/auth/google` - Google OAuth login
+- `POST /api/auth/github` - GitHub OAuth login
+- `GET /api/auth/me` - Get current user
+- `POST /api/auth/logout` - Logout
+- `GET /api/documents` - List all documents
+- `POST /api/documents` - Create document
+- `GET /api/documents/:id` - Get document
+- `PUT /api/documents/:id/state` - Update Yjs state
+- `DELETE /api/documents/:id` - Delete document
+- `POST /api/documents/:id/shares` - Share with user
+- `POST /api/documents/:id/share-link` - Create public link
+
+### WebSocket
+- `GET /ws/:roomId` - Real-time sync endpoint
+
+## Environment Variables
+
+### Backend (.env)
+```bash
+PORT=8080
+DATABASE_URL=postgres://user:pass@localhost:5432/collaboration?sslmode=disable
+JWT_SECRET=your-secret-key-here
+FRONTEND_URL=http://localhost:5173
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# OAuth (optional)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+```
+
+### Docker (.env in root)
+```bash
+POSTGRES_USER=collab
+POSTGRES_PASSWORD=your-secure-password
+POSTGRES_DB=collaboration
+```
+
+## Development Commands
+
+### Backend
 ```bash
 cd backend
-go run cmd/server/main.go  # Run development server
+go run cmd/server/main.go              # Run server
+go test ./...                          # Run tests
+go test -v ./internal/handlers         # Run handler tests
 go build -o server cmd/server/main.go  # Build binary
-go fmt ./...               # Format code
 ```
 
-### Frontend Commands
+### Frontend
 ```bash
 cd frontend
-npm run dev      # Start dev server
+npm run dev      # Dev server
 npm run build    # Production build
-npm run preview  # Preview production build
-npm run lint     # Run ESLint
+npm run lint     # Lint code
 ```
 
 ### Database
-
-The database schema is automatically initialized on first run using `backend/scripts/init.sql`.
-
-To reset the database:
 ```bash
-docker-compose down -v
-docker-compose up -d
+docker-compose down -v   # Reset database
+docker-compose up -d     # Start fresh
 ```
 
 ## How It Works
 
-### Conflict-Free Replication (CRDT)
+### CRDT-Based Collaboration
+- **Yjs** provides Conflict-free Replicated Data Types (CRDTs)
+- Multiple users edit simultaneously without conflicts
+- Changes merge automatically, no manual conflict resolution
+- Works offline, syncs when reconnected
 
-The application uses Yjs, a CRDT implementation, which allows:
-- Multiple users to edit simultaneously without conflicts
-- Automatic merging of concurrent changes
-- Offline editing with eventual consistency
-- No need for operational transformation or locking
+### Backend as Message Broker
+- Backend doesn't understand Yjs data structure
+- Simply broadcasts binary updates to all clients in a room
+- All conflict resolution happens client-side via Yjs
+- Rooms are isolated by document ID
 
-### WebSocket Broadcasting
+### Data Flow
+1. User edits → Yjs generates binary update
+2. Update sent via WebSocket to backend
+3. Backend broadcasts to all clients in room
+4. Each client's Yjs applies and merges update
+5. IndexedDB persists state locally
+6. Periodic backup to PostgreSQL (optional)
 
-The backend acts as a message broker:
-1. Receives binary Yjs updates from clients
-2. Broadcasts updates to all clients in the same room
-3. Does not interpret or modify the updates
-4. Yjs handles all conflict resolution on the client side
+## Testing
 
-## Contributing
+The backend uses `testify/suite` for organized testing:
+```bash
+go test ./internal/handlers                              # All handler tests
+go test -v ./internal/handlers -run TestDocumentHandler  # Specific suite
+```
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## Database Schema
+
+- **documents**: Document metadata and Yjs state (BYTEA)
+- **users**: OAuth user profiles
+- **sessions**: JWT tokens with expiration
+- **shares**: User-to-user document sharing
+- **share_links**: Public shareable links
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License
 
 ## Acknowledgments
 
 - [Yjs](https://github.com/yjs/yjs) - CRDT framework
-- [TipTap](https://tiptap.dev/) - Rich text editor
+- [TipTap](https://tiptap.dev/) - Collaborative editor
 - [Gin](https://gin-gonic.com/) - Go web framework

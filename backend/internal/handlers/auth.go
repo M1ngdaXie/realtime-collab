@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -67,14 +66,14 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
     }
 	log.Println("Google callback state:", c.Query("state"))
 	// Exchange code for token
-	token, err := h.googleConfig.Exchange(context.Background(), c.Query("code"))
+	token, err := h.googleConfig.Exchange(c.Request.Context(), c.Query("code"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
 		return
 	}
 
 	// Get user info from Google
-	client := h.googleConfig.Client(context.Background(), token)
+	client := h.googleConfig.Client(c.Request.Context(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
@@ -91,7 +90,12 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		Name    string `json:"name"`
 		Picture string `json:"picture"`
 	}
-	json.Unmarshal(data, &userInfo)
+	
+	if err := json.Unmarshal(data, &userInfo); err != nil {
+    log.Printf("Failed to parse Google response: %v | Data: %s", err, string(data))
+    c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid Google response"})
+    return
+	}
 	log.Println("Google user info:", userInfo)
 	// Upsert user in database
 	user, err := h.store.UpsertUser(
@@ -124,12 +128,19 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 
 // GithubLogin redirects to GitHub OAuth
 func (h *AuthHandler) GithubLogin(c *gin.Context) {
-	url := h.githubConfig.AuthCodeURL("state", oauth2.AccessTypeOffline)
-	c.Redirect(http.StatusTemporaryRedirect, url)
+	oauthState := generateStateOauthCookie(c.Writer)
+    url := h.githubConfig.AuthCodeURL(oauthState)
+    c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
 // GithubCallback handles GitHub OAuth callback
 func (h *AuthHandler) GithubCallback(c *gin.Context) {
+	oauthState, err := c.Cookie("oauthstate")
+    if err != nil || c.Query("state") != oauthState {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid oauth state"})
+        return
+    }
+	log.Println("Github callback state:", c.Query("state"))
 	code := c.Query("code")
 	if code == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No code provided"})
@@ -137,14 +148,14 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 	}
 
 	// Exchange code for token
-	token, err := h.githubConfig.Exchange(context.Background(), code)
+	token, err := h.githubConfig.Exchange(c.Request.Context(), code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
 		return
 	}
 
 	// Get user info from GitHub
-	client := h.githubConfig.Client(context.Background(), token)
+	client := h.githubConfig.Client(c.Request.Context(), token)
 	
 	// Get user profile
 	resp, err := client.Get("https://api.github.com/user")
@@ -162,7 +173,11 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 		Email     string `json:"email"`
 		AvatarURL string `json:"avatar_url"`
 	}
-	json.Unmarshal(data, &userInfo)
+	if err := json.Unmarshal(data, &userInfo); err != nil {
+    log.Printf("Failed to parse GitHub response: %v | Data: %s", err, string(data))
+    c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid GitHub response"})
+    return
+}
 
 	// If email is not public, fetch it separately
 	if userInfo.Email == "" {
@@ -188,7 +203,8 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 	if userInfo.Name == "" {
 		userInfo.Name = userInfo.Login
 	}
-
+	fmt.Println("Getting user info : ")
+	fmt.Println(userInfo)
 	// Upsert user in database
 	user, err := h.store.UpsertUser(
 		c.Request.Context(),
@@ -199,7 +215,7 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 		&userInfo.AvatarURL,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create user: %v", err)})
 		return
 	}
 

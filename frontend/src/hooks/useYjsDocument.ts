@@ -27,17 +27,25 @@ export const useYjsDocument = (documentId: string, shareToken?: string) => {
 
     const initializeDocument = async () => {
       // For share token access, use placeholder user info
-      const authUser = user || {
+      // Extract user data (handle both direct user object and nested structure for backwards compat)
+      const realUser = user || {
         id: "anonymous",
         name: "Anonymous User",
+        email: "",
         avatar_url: undefined,
       };
-      const realUser = user?.user ? user.user : user || {};
-      const currentName = realUser.name || realUser.email || "Anonymous";
+
       const currentId = realUser.id;
-      const currentAvatar = realUser.avatar_url || realUser.avatar;
-      console.log("✅ [Fixed] User Name is:", currentName);
-      console.log("🔍 [Debug] Initializing Awareness with User:", authUser); // <--- 添加这行
+      const currentName = realUser.name || realUser.email || "Anonymous";
+      const currentAvatar = realUser.avatar_url;
+
+      console.log("🔍 [Debug] User data for awareness:", {
+        id: currentId,
+        name: currentName,
+        email: realUser.email,
+        avatar: currentAvatar,
+        rawUser: realUser,
+      });
       const authToken = token || "";
       console.log("authToken is " + token);
 
@@ -55,8 +63,8 @@ export const useYjsDocument = (documentId: string, shareToken?: string) => {
       }
 
       console.log(
-        "🔍 [Debug] Full authUser object:",
-        JSON.stringify(authUser, null, 2)
+        "🔍 [Debug] Full user object:",
+        JSON.stringify(realUser, null, 2)
       );
       // Set user info for awareness with authenticated user data
       yjsProviders.awareness.setLocalStateField("user", {
@@ -124,8 +132,8 @@ export const useYjsDocument = (documentId: string, shareToken?: string) => {
       );
 
       // Log local user info
-      console.log(`[Awareness] Local user initialized: ${authUser.name}`, {
-        color: getColorFromUserId(authUser.id),
+      console.log(`[Awareness] Local user initialized: ${currentName}`, {
+        color: getColorFromUserId(currentId),
         clientId: yjsProviders.awareness.clientID,
       });
 
