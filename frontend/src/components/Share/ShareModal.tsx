@@ -6,9 +6,11 @@ import './ShareModal.css';
 interface ShareModalProps {
   documentId: string;
   onClose: () => void;
+  currentPermission?: string;
+  currentRole?: string;
 }
 
-function ShareModal({ documentId, onClose }: ShareModalProps) {
+function ShareModal({ documentId, onClose, currentPermission, currentRole }: ShareModalProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'link'>('users');
   const [shares, setShares] = useState<DocumentShareWithUser[]>([]);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
@@ -148,6 +150,31 @@ function ShareModal({ documentId, onClose }: ShareModalProps) {
           <h2>Share Document</h2>
           <button className="close-button" onClick={onClose}>×</button>
         </div>
+
+        {currentRole && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '12px 16px',
+              backgroundColor: currentRole === 'owner' ? '#e8f5e9' : currentPermission === 'edit' ? '#fff3e0' : '#e3f2fd',
+              borderRadius: '8px',
+              margin: '16px 0',
+              fontSize: '14px',
+              fontWeight: '500',
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>
+              {currentRole === 'owner' ? '👑' : currentPermission === 'edit' ? '✏️' : '👁️'}
+            </span>
+            <span>
+              {currentRole === 'owner' && 'You are the owner'}
+              {currentRole === 'editor' && 'You have edit access'}
+              {currentRole === 'viewer' && 'You have view-only access'}
+            </span>
+          </div>
+        )}
 
         <div className="tabs">
           <button

@@ -129,16 +129,16 @@ func (s *PostgresStore) GenerateShareToken(ctx context.Context, documentID uuid.
 	}
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
-	// Update document with share token
+	// Update document with share token and permission
 	query := `
 		UPDATE documents
-		SET share_token = $1, is_public = true, updated_at = NOW()
-		WHERE id = $2
+		SET share_token = $1, share_permission = $2, is_public = true, updated_at = NOW()
+		WHERE id = $3
 		RETURNING share_token
 	`
 
 	var shareToken string
-	err := s.db.QueryRowContext(ctx, query, token, documentID).Scan(&shareToken)
+	err := s.db.QueryRowContext(ctx, query, token, permission, documentID).Scan(&shareToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to set share token: %w", err)
 	}
@@ -197,4 +197,46 @@ func (s *PostgresStore) GetShareToken(ctx context.Context, documentID uuid.UUID)
 	}
 
 	return token, true, nil
+}
+
+// GetUserPermission returns the permission level for a user on a document
+// Returns "owner", "edit", "view", or "" if no access
+func (s *PostgresStore) GetUserPermission(ctx context.Context, documentID, userID uuid.UUID) (string, error) {
+	query := `
+		SELECT
+			CASE
+				WHEN EXISTS(SELECT 1 FROM documents WHERE id = $1 AND owner_id = $2) THEN 'owner'
+				WHEN EXISTS(SELECT 1 FROM document_shares WHERE document_id = $1 AND user_id = $2 AND permission = 'edit') THEN 'edit'
+				WHEN EXISTS(SELECT 1 FROM document_shares WHERE document_id = $1 AND user_id = $2 AND permission = 'view') THEN 'view'
+				ELSE ''
+			END as permission
+	`
+
+	var permission string
+	err := s.db.QueryRowContext(ctx, query, documentID, userID).Scan(&permission)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user permission: %w", err)
+	}
+
+	return permission, nil
+}
+
+// GetShareLinkPermission returns the permission level for a public share link
+// Returns the permission from documents.share_permission or "" if not public
+func (s *PostgresStore) GetShareLinkPermission(ctx context.Context, documentID uuid.UUID) (string, error) {
+	query := `
+		SELECT COALESCE(share_permission, 'edit') FROM documents
+		WHERE id = $1 AND is_public = true AND share_token IS NOT NULL
+	`
+
+	var permission string
+	err := s.db.QueryRowContext(ctx, query, documentID).Scan(&permission)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to get share link permission: %w", err)
+	}
+
+	return permission, nil
 }

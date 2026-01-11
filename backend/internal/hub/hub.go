@@ -20,6 +20,7 @@ type Client struct {
 	UserID         *uuid.UUID // Authenticated user ID (nil for public share access)
 	UserName       string     // User's display name for presence
 	UserAvatar     *string    // User's avatar URL for presence
+	Permission     string     // User's permission level: "owner", "edit", "view"
 	Conn           *websocket.Conn
 	send           chan []byte
 	sendMu         sync.Mutex
@@ -269,7 +270,9 @@ func (c *Client) ReadPump() {
             }
             break
         }
-
+        if len(message) > 0 && message[0] == 1 {
+    log.Printf("DEBUG: 收到 Awareness (光标) 消息 from User %s Permission: %s", c.ID, c.Permission)
+}
         // ==========================================================
         // 1. 偷听逻辑 (Sniff) - 必须放在转发之前！
         // ==========================================================
@@ -288,7 +291,32 @@ func (c *Client) ReadPump() {
         }
 
         // ==========================================================
-        // 2. 转发逻辑 (Broadcast) - 恢复协作功能
+        // 2. 权限检查 - 只有编辑权限的用户才能广播消息
+        // ==========================================================
+        // ==========================================================
+        // 2. 权限检查 - 精细化拦截 (Fine-grained Permission Check)
+        // ==========================================================
+        if c.Permission == "view" {
+            // Yjs Protocol:
+            // message[0]: MessageType (0=Sync, 1=Awareness)
+            // message[1]: SyncMessageType (0=Step1, 1=Step2, 2=Update)
+            
+            // 只有当消息是 "Sync Update" (修改文档) 时，才拦截
+            isSyncMessage := len(message) > 0 && message[0] == 0
+            isUpdateOp := len(message) > 1 && message[1] == 2
+
+            if isSyncMessage && isUpdateOp {
+                log.Printf("🛡️ [Security] Blocked unauthorized WRITE from view-only user: %s", c.ID)
+                continue // ❌ 拦截修改
+            }
+            
+            // ✅ 放行：
+            // 1. Awareness (光标): message[0] == 1
+            // 2. SyncStep1/2 (握手加载文档): message[1] == 0 or 1
+        }
+
+        // ==========================================================
+        // 3. 转发逻辑 (Broadcast) - 恢复协作功能
         // ==========================================================
         if messageType == websocket.BinaryMessage {
             // 注意：这里要检查 channel 是否已满，避免阻塞导致 ReadPump 卡死
@@ -341,16 +369,17 @@ func (c *Client) WritePump() {
 }
 
 
-func NewClient(id string, userID *uuid.UUID, userName string, userAvatar *string, conn *websocket.Conn, hub *Hub, roomID string) *Client {
+func NewClient(id string, userID *uuid.UUID, userName string, userAvatar *string, permission string, conn *websocket.Conn, hub *Hub, roomID string) *Client {
 	return &Client{
-		ID:         id,
-		UserID:     userID,
-		UserName:   userName,
-		UserAvatar: userAvatar,
-		Conn:       conn,
-		send:       make(chan []byte, 1024),
-		hub:        hub,
-		roomID:     roomID,
+		ID:             id,
+		UserID:         userID,
+		UserName:       userName,
+		UserAvatar:     userAvatar,
+		Permission:     permission,
+		Conn:           conn,
+		send:           make(chan []byte, 1024),
+		hub:            hub,
+		roomID:         roomID,
 		observedYjsIDs: make(map[uint64]uint64),
 	}
 }

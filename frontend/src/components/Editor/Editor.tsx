@@ -8,9 +8,12 @@ import Toolbar from "./Toolbar.tsx";
 
 interface EditorProps {
   providers: YjsProviders;
+  permission: string | null;
 }
 
-const Editor = ({ providers }: EditorProps) => {
+const Editor = ({ providers, permission }: EditorProps) => {
+  const isEditable = permission !== "view";
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -28,6 +31,7 @@ const Editor = ({ providers }: EditorProps) => {
       }),
     ],
     content: "",
+    editable: isEditable,
   });
 
   useEffect(() => {
@@ -49,8 +53,11 @@ const Editor = ({ providers }: EditorProps) => {
 
   return (
     <div className="editor-container">
-      <Toolbar editor={editor} />
-      <EditorContent editor={editor} className="editor-content" />
+      {isEditable && <Toolbar editor={editor} />}
+      <EditorContent
+        editor={editor}
+        className={`editor-content ${!isEditable ? 'view-only' : ''}`}
+      />
     </div>
   );
 };

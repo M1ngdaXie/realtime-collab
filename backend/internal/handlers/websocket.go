@@ -114,18 +114,35 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	// If authenticated with JWT, check document permissions
+	// Determine permission level
+	var permission string
 	if userID != nil {
-		canView, err := wsh.store.CanViewDocument(c.Request.Context(), documentID, *userID)
+		// Authenticated user - get their permission level
+		perm, err := wsh.store.GetUserPermission(c.Request.Context(), documentID, *userID)
 		if err != nil {
-			log.Printf("Error checking permissions: %v", err)
+			log.Printf("Error getting user permission: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check permissions"})
 			return
 		}
-		if !canView {
+		if perm == "" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to access this document"})
 			return
 		}
+		permission = perm
+	} else {
+		// Share token user - get share link permission
+		perm, err := wsh.store.GetShareLinkPermission(c.Request.Context(), documentID)
+		if err != nil {
+			log.Printf("Error getting share link permission: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check permissions"})
+			return
+		}
+		if perm == "" {
+			// Share link doesn't exist or document isn't public
+			c.JSON(http.StatusForbidden, gin.H{"error": "Invalid share link"})
+			return
+		}
+		permission = perm
 	}
 
 	// Upgrade connection
@@ -135,9 +152,9 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	// Create client with user information
+	// Create client with user information and permission
 	clientID := uuid.New().String()
-	client := hub.NewClient(clientID, userID, userName, userAvatar, conn, wsh.hub, roomID)
+	client := hub.NewClient(clientID, userID, userName, userAvatar, permission, conn, wsh.hub, roomID)
 
 	// Register client
 	wsh.hub.Register <- client

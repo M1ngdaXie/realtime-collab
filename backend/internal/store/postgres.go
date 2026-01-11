@@ -44,6 +44,8 @@ type Store interface {
 	ValidateShareToken(ctx context.Context, documentID uuid.UUID, token string) (bool, error)
 	RevokeShareToken(ctx context.Context, documentID uuid.UUID) error
 	GetShareToken(ctx context.Context, documentID uuid.UUID) (string, bool, error)
+	GetUserPermission(ctx context.Context, documentID, userID uuid.UUID) (string, error)
+	GetShareLinkPermission(ctx context.Context, documentID uuid.UUID) (string, error)
 
     Close() error
 }

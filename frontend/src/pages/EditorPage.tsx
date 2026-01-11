@@ -11,7 +11,7 @@ const EditorPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const shareToken = searchParams.get('share') || undefined;
-  const { providers, synced } = useYjsDocument(id!, shareToken);
+  const { providers, synced, permission, role } = useYjsDocument(id!, shareToken);
   const [showShareModal, setShowShareModal] = useState(false);
 
   if (!providers) {
@@ -24,6 +24,12 @@ const EditorPage = () => {
       <div className="page-header">
         <button onClick={() => navigate("/")}>← Back to Home</button>
         <div className="header-actions">
+          {permission === "view" && (
+            <div className="view-only-badge" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 12px', backgroundColor: '#f0f0f0', borderRadius: '4px', fontSize: '14px' }}>
+              <span>👁️</span>
+              <span>View only</span>
+            </div>
+          )}
           <div className="sync-status">
             {synced ? "✓ Synced" : "⟳ Syncing..."}
           </div>
@@ -37,7 +43,7 @@ const EditorPage = () => {
 
       <div className="page-content">
         <div className="main-area">
-          <Editor providers={providers} />
+          <Editor providers={providers} permission={permission} />
         </div>
         <div className="sidebar">
           <UserList awareness={providers.awareness} />
@@ -45,7 +51,12 @@ const EditorPage = () => {
       </div>
 
       {showShareModal && (
-        <ShareModal documentId={id!} onClose={() => setShowShareModal(false)} />
+        <ShareModal
+          documentId={id!}
+          onClose={() => setShowShareModal(false)}
+          currentPermission={permission || undefined}
+          currentRole={role || undefined}
+        />
       )}
     </div>
   );

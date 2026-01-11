@@ -243,6 +243,16 @@ func (h *ShareHandler) GetShareLink(c *gin.Context) {
 		return
 	}
 
+	// Get the permission for the share link
+	permission, err := h.store.GetShareLinkPermission(c.Request.Context(), documentID)
+	if err != nil {
+		respondInternalError(c, "Failed to get share link permission", err)
+		return
+	}
+	if permission == "" {
+		permission = "edit" // Default fallback
+	}
+
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
 		frontendURL = "http://localhost:5173"
@@ -251,8 +261,9 @@ func (h *ShareHandler) GetShareLink(c *gin.Context) {
 	shareURL := fmt.Sprintf("%s/editor/%s?share=%s", frontendURL, documentID.String(), token)
 
 	c.JSON(http.StatusOK, gin.H{
-		"url":   shareURL,
-		"token": token,
+		"url":        shareURL,
+		"token":      token,
+		"permission": permission,
 	})
 }
 

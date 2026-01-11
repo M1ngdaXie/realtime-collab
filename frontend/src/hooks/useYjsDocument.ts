@@ -7,14 +7,35 @@ import {
   type YjsProviders,
 } from "../lib/yjs";
 import { useAutoSave } from "./useAutoSave";
+import { documentsApi } from "../api/document";
 
 export const useYjsDocument = (documentId: string, shareToken?: string) => {
   const { user, token } = useAuth();
   const [providers, setProviders] = useState<YjsProviders | null>(null);
   const [synced, setSynced] = useState(false);
+  const [permission, setPermission] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
 
   // Enable auto-save when providers are ready
   useAutoSave(documentId, providers?.ydoc || null);
+
+  // Fetch permission when component mounts
+  useEffect(() => {
+    if (!documentId) return;
+
+    const fetchPermission = async () => {
+      try {
+        const permData = await documentsApi.getPermission(documentId, shareToken);
+        setPermission(permData.permission);
+        setRole(permData.role);
+        console.log(`📋 Permission loaded: ${permData.role} (${permData.permission})`);
+      } catch (error) {
+        console.error("Failed to fetch permission:", error);
+      }
+    };
+
+    fetchPermission();
+  }, [documentId, shareToken]);
 
   useEffect(() => {
     // Wait for auth (unless we have a share token for public access)
@@ -73,6 +94,7 @@ export const useYjsDocument = (documentId: string, shareToken?: string) => {
         color: getColorFromUserId(currentId),
         avatar: currentAvatar,
       });
+      console.log(currentAvatar)
 
       // NEW: Add awareness event logging
       const handleAwarenessChange = ({
@@ -154,5 +176,5 @@ export const useYjsDocument = (documentId: string, shareToken?: string) => {
   }, [documentId, user, token, shareToken]);
 
 
-  return { providers, synced };
+  return { providers, synced, permission, role };
 };

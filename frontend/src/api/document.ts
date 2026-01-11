@@ -13,6 +13,11 @@ export type CreateDocumentRequest = {
   type: "editor" | "kanban";
 }
 
+export type PermissionResponse = {
+  permission: "view" | "edit";
+  role: "owner" | "editor" | "viewer";
+}
+
 export const documentsApi = {
   // List all documents
   list: async (): Promise<{ documents: DocumentType[]; total: number }> => {
@@ -66,5 +71,16 @@ export const documentsApi = {
       body: buffer,
     });
     if (!response.ok) throw new Error("Failed to update document state");
+  },
+
+  // Get user's permission for a document
+  getPermission: async (id: string, shareToken?: string): Promise<PermissionResponse> => {
+    const url = shareToken
+      ? `${API_BASE_URL}/documents/${id}/permission?share=${shareToken}`
+      : `${API_BASE_URL}/documents/${id}/permission`;
+
+    const response = await authFetch(url);
+    if (!response.ok) throw new Error("Failed to fetch document permission");
+    return response.json();
   },
 };

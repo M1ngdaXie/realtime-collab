@@ -28,3 +28,9 @@ type DocumentShareWithUser struct {
     DocumentShare
     User User `json:"user"`
 }
+
+// PermissionResponse represents the user's permission level for a document
+type PermissionResponse struct {
+    Permission string `json:"permission"` // "view" or "edit"
+    Role       string `json:"role"`       // "owner", "editor", or "viewer"
+}
