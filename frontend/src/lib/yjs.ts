@@ -4,7 +4,7 @@ import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 import { documentsApi } from "../api/document";
 
-const WS_URL = import.meta.env.VITE_WS_URL;
+const WS_URL = import.meta.env.VITE_WS_URL || "wss://docnest-backend-mingda.fly.dev";
 
 export interface YjsProviders {
   ydoc: Y.Doc;

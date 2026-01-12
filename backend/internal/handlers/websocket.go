@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/M1ngdaXie/realtime-collab/internal/auth"
 	"github.com/M1ngdaXie/realtime-collab/internal/hub"
@@ -17,16 +18,20 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// Check origin against allowed origins from environment
+		origin := r.Header.Get("Origin")
 		allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
 		if allowedOrigins == "" {
 			// Default for development
-			origin := r.Header.Get("Origin")
 			return origin == "http://localhost:5173" || origin == "http://localhost:3000"
 		}
 		// Production: validate against ALLOWED_ORIGINS
-		// TODO: Parse and validate origin
-		return true
+		origins := strings.Split(allowedOrigins, ",")
+		for _, allowed := range origins {
+			if strings.TrimSpace(allowed) == origin {
+				return true
+			}
+		}
+		return false
 	},
 }
 
