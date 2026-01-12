@@ -3,10 +3,17 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api"
 export async function authFetch(url: string, options?: RequestInit): Promise<Response> {
   const token = localStorage.getItem('auth_token');
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options?.headers,
   };
+
+  // Merge existing headers if provided
+  if (options?.headers) {
+    const existingHeaders = new Headers(options.headers);
+    existingHeaders.forEach((value, key) => {
+      headers[key] = value;
+    });
+  }
 
   // Add Authorization header if token exists
   if (token) {

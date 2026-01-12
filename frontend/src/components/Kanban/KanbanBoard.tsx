@@ -70,7 +70,7 @@ const KanbanBoard = ({ providers }: KanbanBoardProps) => {
 
     if (columnIndex !== -1) {
       providers.ydoc.transact(() => {
-        const column = cols[columnIndex];
+        const column = cols[columnIndex] as KanbanColumn;
         column.tasks.push(task);
         yarray.delete(columnIndex, 1);
         yarray.insert(columnIndex, [column]);
@@ -91,8 +91,8 @@ const KanbanBoard = ({ providers }: KanbanBoardProps) => {
 
     if (fromIndex !== -1 && toIndex !== -1) {
       providers.ydoc.transact(() => {
-        const fromCol = { ...cols[fromIndex] };
-        const toCol = { ...cols[toIndex] };
+        const fromCol = { ...(cols[fromIndex] as KanbanColumn) };
+        const toCol = { ...(cols[toIndex] as KanbanColumn) };
 
         const taskIndex = fromCol.tasks.findIndex((t: Task) => t.id === taskId);
         if (taskIndex !== -1) {

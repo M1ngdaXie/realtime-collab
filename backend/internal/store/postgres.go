@@ -47,6 +47,13 @@ type Store interface {
 	GetUserPermission(ctx context.Context, documentID, userID uuid.UUID) (string, error)
 	GetShareLinkPermission(ctx context.Context, documentID uuid.UUID) (string, error)
 
+	// Version operations
+	CreateDocumentVersion(ctx context.Context, documentID, userID uuid.UUID, snapshot []byte, textPreview *string, label *string, isAuto bool) (*models.DocumentVersion, error)
+	ListDocumentVersions(ctx context.Context, documentID uuid.UUID, limit int, offset int) ([]models.DocumentVersionWithAuthor, int, error)
+	GetDocumentVersion(ctx context.Context, versionID uuid.UUID) (*models.DocumentVersion, error)
+	GetLatestDocumentVersion(ctx context.Context, documentID uuid.UUID) (*models.DocumentVersion, error)
+
+
     Close() error
 }
 

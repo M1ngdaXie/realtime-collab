@@ -1,4 +1,4 @@
-import { CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 
 interface FloatingGemProps {
   position?: { top?: string; right?: string; bottom?: string; left?: string };

@@ -3,13 +3,13 @@ import * as Y from 'yjs';
 import { documentsApi } from '../api/document';
 
 export const useAutoSave = (documentId: string, ydoc: Y.Doc | null) => {
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<number | null>(null);
   const isSavingRef = useRef(false);
 
   useEffect(() => {
     if (!ydoc) return;
 
-    const handleUpdate = (update: Uint8Array, origin: any) => {
+    const handleUpdate = (_update: Uint8Array, origin: any) => {
       // Ignore updates from initial sync or remote sources
       if (origin === 'init' || origin === 'remote') return;
 

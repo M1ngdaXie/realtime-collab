@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Environment files (don't include in image, use Fly.io secrets)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Test files
+*_test.go
+testdata
+
+# Documentation
+*.md
+README.md
+
+# Scripts (migration files should be run separately)
+scripts
+
+# Temporary files
+*.log
+tmp
+temp
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+server
+main
+
+# OS files
+.DS_Store
+Thumbs.db

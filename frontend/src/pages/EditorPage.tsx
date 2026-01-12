@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Editor from "../components/Editor/Editor.tsx";
+import Navbar from "../components/Navbar.tsx";
 import UserList from "../components/Presence/UserList.tsx";
 import ShareModal from "../components/Share/ShareModal.tsx";
-import Navbar from "../components/Navbar.tsx";
 import { useYjsDocument } from "../hooks/useYjsDocument.ts";
 
 const EditorPage = () => {

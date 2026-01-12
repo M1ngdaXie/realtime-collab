@@ -4,7 +4,7 @@ import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 import { documentsApi } from "../api/document";
 
-const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080/ws";
+const WS_URL = import.meta.env.VITE_WS_URL;
 
 export interface YjsProviders {
   ydoc: Y.Doc;
@@ -21,7 +21,7 @@ export interface YjsUser {
 
 export const createYjsDocument = async (
   documentId: string,
-  user: YjsUser,
+  _user: YjsUser,
   token: string,
   shareToken?: string
 ): Promise<YjsProviders> => {
