@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './LoginPage.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://docnest-backend-mingda.fly.dev/api";
 
 function LoginPage() {
   const { user, loading } = useAuth();
