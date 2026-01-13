@@ -24,7 +24,7 @@ const EditorPage = () => {
       <div className="page-header">
         <button onClick={() => navigate("/")}>← Back to Home</button>
         <div className="header-actions">
-          {permission === "view" && (
+          {permission !== "edit" && permission !== null && (
             <div className="view-only-badge" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 12px', backgroundColor: '#f0f0f0', borderRadius: '4px', fontSize: '14px' }}>
               <span>👁️</span>
               <span>View only</span>

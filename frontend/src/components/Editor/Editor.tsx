@@ -12,7 +12,8 @@ interface EditorProps {
 }
 
 const Editor = ({ providers, permission }: EditorProps) => {
-  const isEditable = permission !== "view";
+  // Default to false (read-only) until permission is loaded
+  const isEditable = permission === "edit";
 
   const editor = useEditor({
     extensions: [
@@ -33,6 +34,13 @@ const Editor = ({ providers, permission }: EditorProps) => {
     content: "",
     editable: isEditable,
   });
+
+  // Update editable state when permission changes
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(permission === "edit");
+    }
+  }, [editor, permission]);
 
   useEffect(() => {
     if (editor && providers.awareness) {
