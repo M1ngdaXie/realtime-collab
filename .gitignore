@@ -1,7 +1,11 @@
-# Environment variables
-.env
+# Environment variables (local overrides only)
+# .env files are committed (contain production URLs, not secrets)
+# .env.local files are git-ignored (contain local overrides)
 .env.local
 .env.*.local
+backend/.env.local
+frontend/.env.local
+.env
 
 # AI assistant instructions (keep private)
 CLAUDE.md
