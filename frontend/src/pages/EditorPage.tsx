@@ -4,6 +4,7 @@ import Editor from "../components/Editor/Editor.tsx";
 import Navbar from "../components/Navbar.tsx";
 import UserList from "../components/Presence/UserList.tsx";
 import ShareModal from "../components/Share/ShareModal.tsx";
+import VersionHistoryPanel from "../components/VersionHistory/VersionHistoryPanel.tsx";
 import { useYjsDocument } from "../hooks/useYjsDocument.ts";
 
 const EditorPage = () => {
@@ -13,6 +14,7 @@ const EditorPage = () => {
   const shareToken = searchParams.get('share') || undefined;
   const { providers, synced, permission, role } = useYjsDocument(id!, shareToken);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
 
   if (!providers) {
     return <div className="loading">Connecting...</div>;
@@ -38,6 +40,11 @@ const EditorPage = () => {
               Share
             </button>
           )}
+          {!shareToken && (
+            <button className="history-btn" onClick={() => setShowVersionHistory(true)}>
+              History
+            </button>
+          )}
         </div>
       </div>
 
@@ -56,6 +63,15 @@ const EditorPage = () => {
           onClose={() => setShowShareModal(false)}
           currentPermission={permission || undefined}
           currentRole={role || undefined}
+        />
+      )}
+
+      {showVersionHistory && (
+        <VersionHistoryPanel
+          documentId={id!}
+          ydoc={providers.ydoc}
+          canEdit={permission === "edit"}
+          onClose={() => setShowVersionHistory(false)}
         />
       )}
     </div>

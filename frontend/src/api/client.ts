@@ -3,9 +3,13 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "https://docnest-backend-mi
 export async function authFetch(url: string, options?: RequestInit): Promise<Response> {
   const token = localStorage.getItem('auth_token');
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const headers: Record<string, string> = {};
+
+  // Only set Content-Type for non-FormData requests
+  // FormData needs browser to auto-set multipart/form-data with boundary
+  if (!(options?.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   // Merge existing headers if provided
   if (options?.headers) {

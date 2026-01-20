@@ -142,7 +142,7 @@ func (s *PostgresStore) ListDocumentVersions(
 // GetDocumentVersion retrieves a specific version with full snapshot
 func (s *PostgresStore) GetDocumentVersion(ctx context.Context, versionID uuid.UUID) (*models.DocumentVersion, error) {
 	query := `
-		SELECT id, document_id, yjs_snapshot, text_preview, ve	rsion_number,
+		SELECT id, document_id, yjs_snapshot, text_preview, version_number,
 		       created_by, version_label, is_auto_generated, created_at
 		FROM document_versions
 		WHERE id = $1
