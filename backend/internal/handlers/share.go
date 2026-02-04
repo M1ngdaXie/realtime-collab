@@ -3,9 +3,9 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"os" // Add this
 
 	"github.com/M1ngdaXie/realtime-collab/internal/auth"
+	"github.com/M1ngdaXie/realtime-collab/internal/config"
 	"github.com/M1ngdaXie/realtime-collab/internal/models"
 	"github.com/M1ngdaXie/realtime-collab/internal/store"
 	"github.com/gin-gonic/gin"
@@ -14,10 +14,11 @@ import (
 
 type ShareHandler struct {
 	store store.Store
+	cfg   *config.Config
 }
 
-func NewShareHandler(store store.Store) *ShareHandler {
-	return &ShareHandler{store: store}
+func NewShareHandler(store store.Store, cfg *config.Config) *ShareHandler {
+	return &ShareHandler{store: store, cfg: cfg}
 }
 
 // CreateShare creates a new document share
@@ -193,13 +194,7 @@ func (h *ShareHandler) CreateShareLink(c *gin.Context) {
 		return
 	}
 
-	// Get frontend URL from env
-	frontendURL := os.Getenv("FRONTEND_URL")
-	if frontendURL == "" {
-		frontendURL = "http://localhost:5173"
-	}
-
-	shareURL := fmt.Sprintf("%s/editor/%s?share=%s", frontendURL, documentID.String(), token)
+	shareURL := fmt.Sprintf("%s/editor/%s?share=%s", h.cfg.FrontendURL, documentID.String(), token)
 
 	c.JSON(http.StatusOK, gin.H{
 		"url":        shareURL,
@@ -253,12 +248,7 @@ func (h *ShareHandler) GetShareLink(c *gin.Context) {
 		permission = "edit" // Default fallback
 	}
 
-	frontendURL := os.Getenv("FRONTEND_URL")
-	if frontendURL == "" {
-		frontendURL = "http://localhost:5173"
-	}
-
-	shareURL := fmt.Sprintf("%s/editor/%s?share=%s", frontendURL, documentID.String(), token)
+	shareURL := fmt.Sprintf("%s/editor/%s?share=%s", h.cfg.FrontendURL, documentID.String(), token)
 
 	c.JSON(http.StatusOK, gin.H{
 		"url":        shareURL,

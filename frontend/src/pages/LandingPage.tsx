@@ -1,8 +1,7 @@
 import FloatingGem from '../components/PixelSprites/FloatingGem';
 import PixelIcon from '../components/PixelIcon/PixelIcon';
+import { API_BASE_URL } from '../config';
 import './LandingPage.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://docnest-backend-mingda.fly.dev/api";
 
 function LandingPage() {
   const handleGoogleLogin = () => {

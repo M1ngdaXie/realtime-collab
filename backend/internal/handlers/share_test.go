@@ -25,7 +25,7 @@ func (s *ShareHandlerSuite) SetupTest() {
 
 	// Create handler and router
 	authMiddleware := auth.NewAuthMiddleware(s.store, s.jwtSecret)
-	s.handler = NewShareHandler(s.store)
+	s.handler = NewShareHandler(s.store, s.cfg)
 	s.router = gin.New()
 
 	// Custom auth middleware for tests that sets user_id as pointer

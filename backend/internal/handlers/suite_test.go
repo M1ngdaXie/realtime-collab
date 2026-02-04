@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/M1ngdaXie/realtime-collab/internal/config"
 	"github.com/M1ngdaXie/realtime-collab/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -17,18 +18,26 @@ import (
 // BaseHandlerSuite provides common setup for all handler tests
 type BaseHandlerSuite struct {
 	suite.Suite
-	store       *store.PostgresStore
-	cleanup     func()
-	testData    *store.TestData
-	jwtSecret   string
-	frontendURL string
+	store     *store.PostgresStore
+	cleanup   func()
+	testData  *store.TestData
+	jwtSecret string
+	cfg       *config.Config
 }
 
 // SetupSuite runs once before all tests in the suite
 func (s *BaseHandlerSuite) SetupSuite() {
 	s.store, s.cleanup = store.SetupTestDB(s.T())
 	s.jwtSecret = "test-secret-key-do-not-use-in-production"
-	s.frontendURL = "http://localhost:5173"
+	s.cfg = &config.Config{
+		Port:           "8080",
+		Environment:    "development",
+		JWTSecret:      s.jwtSecret,
+		FrontendURL:    "http://localhost:5173",
+		BackendURL:     "http://localhost:8080",
+		AllowedOrigins: []string{"http://localhost:5173", "http://localhost:3000"},
+		SecureCookie:   false,
+	}
 	gin.SetMode(gin.TestMode)
 }
 

@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://docnest-backend-mingda.fly.dev/api";
+import { API_BASE_URL } from '../config';
 
 export async function authFetch(url: string, options?: RequestInit): Promise<Response> {
   const token = localStorage.getItem('auth_token');

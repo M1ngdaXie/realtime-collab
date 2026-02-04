@@ -47,6 +47,13 @@ export const useYjsDocument = (documentId: string, shareToken?: string) => {
     let currentProviders: YjsProviders | null = null;
 
     const initializeDocument = async () => {
+      // Read port override from query param for testing multiple backends
+      const searchParams = new URLSearchParams(window.location.search);
+      const portOverride = searchParams.get('port');
+      const wsUrlOverride = portOverride
+        ? `ws://localhost:${portOverride}/ws`
+        : undefined;
+
       // For share token access, use placeholder user info
       // Extract user data (handle both direct user object and nested structure for backwards compat)
       const realUser = user || {
@@ -69,12 +76,16 @@ export const useYjsDocument = (documentId: string, shareToken?: string) => {
       });
       const authToken = token || "";
       console.log("authToken is " + token);
+      if (wsUrlOverride) {
+        console.log(`🔧 Using WebSocket URL override: ${wsUrlOverride}`);
+      }
 
       const yjsProviders = await createYjsDocument(
         documentId,
         { id: currentId, name: currentName, avatar_url: currentAvatar },
         authToken,
-        shareToken
+        shareToken,
+        wsUrlOverride
       );
       currentProviders = yjsProviders;
 

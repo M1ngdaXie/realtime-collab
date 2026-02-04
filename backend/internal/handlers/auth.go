@@ -8,10 +8,10 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/M1ngdaXie/realtime-collab/internal/auth"
+	"github.com/M1ngdaXie/realtime-collab/internal/config"
 	"github.com/M1ngdaXie/realtime-collab/internal/models"
 	"github.com/M1ngdaXie/realtime-collab/internal/store"
 	"github.com/gin-gonic/gin"
@@ -20,41 +20,45 @@ import (
 )
 
 type AuthHandler struct {
-	store          store.Store
-	googleConfig   *oauth2.Config
-	githubConfig   *oauth2.Config
-	jwtSecret      string
-	frontendURL    string
+	store        store.Store
+	cfg          *config.Config
+	googleConfig *oauth2.Config
+	githubConfig *oauth2.Config
 }
 
-func NewAuthHandler(store store.Store, jwtSecret, frontendURL string) *AuthHandler {
-	googleConfig := auth.GetGoogleOAuthConfig(
-		os.Getenv("GOOGLE_CLIENT_ID"),
-		os.Getenv("GOOGLE_CLIENT_SECRET"),
-		os.Getenv("GOOGLE_REDIRECT_URL"),
-	)
+func NewAuthHandler(store store.Store, cfg *config.Config) *AuthHandler {
+	var googleConfig *oauth2.Config
+	if cfg.HasGoogleOAuth() {
+		googleConfig = auth.GetGoogleOAuthConfig(
+			cfg.GoogleClientID,
+			cfg.GoogleClientSecret,
+			cfg.GoogleRedirectURL,
+		)
+	}
 
-	githubConfig := auth.GetGitHubOAuthConfig(
-		os.Getenv("GITHUB_CLIENT_ID"),
-		os.Getenv("GITHUB_CLIENT_SECRET"),
-		os.Getenv("GITHUB_REDIRECT_URL"),
-	)
+	var githubConfig *oauth2.Config
+	if cfg.HasGitHubOAuth() {
+		githubConfig = auth.GetGitHubOAuthConfig(
+			cfg.GitHubClientID,
+			cfg.GitHubClientSecret,
+			cfg.GitHubRedirectURL,
+		)
+	}
 
 	return &AuthHandler{
 		store:        store,
+		cfg:          cfg,
 		googleConfig: googleConfig,
 		githubConfig: githubConfig,
-		jwtSecret:    jwtSecret,
-		frontendURL:  frontendURL,
 	}
 }
 
 // GoogleLogin redirects to Google OAuth
 func (h *AuthHandler) GoogleLogin(c *gin.Context) {
-    // Generate random state and set cookie
-    oauthState := generateStateOauthCookie(c.Writer)
-    url := h.googleConfig.AuthCodeURL(oauthState, oauth2.AccessTypeOffline)
-    c.Redirect(http.StatusTemporaryRedirect, url)
+	// Generate random state and set cookie
+	oauthState := h.generateStateOauthCookie(c.Writer)
+	url := h.googleConfig.AuthCodeURL(oauthState, oauth2.AccessTypeOffline)
+	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
 // GoogleCallback handles Google OAuth callback
@@ -122,15 +126,15 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	// Redirect to frontend with token
-	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s", h.frontendURL, jwt)
+	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s", h.cfg.FrontendURL, jwt)
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 // GithubLogin redirects to GitHub OAuth
 func (h *AuthHandler) GithubLogin(c *gin.Context) {
-	oauthState := generateStateOauthCookie(c.Writer)
-    url := h.githubConfig.AuthCodeURL(oauthState)
-    c.Redirect(http.StatusTemporaryRedirect, url)
+	oauthState := h.generateStateOauthCookie(c.Writer)
+	url := h.githubConfig.AuthCodeURL(oauthState)
+	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
 // GithubCallback handles GitHub OAuth callback
@@ -227,7 +231,7 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 	}
 
 	// Redirect to frontend with token
-	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s", h.frontendURL, jwt)
+	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s", h.cfg.FrontendURL, jwt)
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
@@ -274,7 +278,7 @@ func (h *AuthHandler) createSessionAndJWT(c *gin.Context, user *models.User) (st
 	expiresAt := time.Now().Add(7 * 24 * time.Hour) // 7 days
 
 	// Generate JWT first (we need it for session) - now includes avatar URL
-	jwt, err := auth.GenerateJWT(user.ID, user.Name, user.Email, user.AvatarURL, h.jwtSecret, 7*24*time.Hour)
+	jwt, err := auth.GenerateJWT(user.ID, user.Name, user.Email, user.AvatarURL, h.cfg.JWTSecret, 7*24*time.Hour)
 	if err != nil {
 		return "", err
 	}
@@ -298,25 +302,25 @@ func (h *AuthHandler) createSessionAndJWT(c *gin.Context, user *models.User) (st
 
 	return jwt, nil
 }
-func generateStateOauthCookie(w http.ResponseWriter) string {
-    b := make([]byte, 16)
-n, err := rand.Read(b)
-if err != nil || n != 16 {
-    fmt.Printf("Failed to generate random state: %v\n", err)
-    return ""  // Critical for CSRF security
-}
-    state := base64.URLEncoding.EncodeToString(b)
+func (h *AuthHandler) generateStateOauthCookie(w http.ResponseWriter) string {
+	b := make([]byte, 16)
+	n, err := rand.Read(b)
+	if err != nil || n != 16 {
+		fmt.Printf("Failed to generate random state: %v\n", err)
+		return "" // Critical for CSRF security
+	}
+	state := base64.URLEncoding.EncodeToString(b)
 
-    cookie := http.Cookie{
-        Name:     "oauthstate",
-        Value:    state,
-        Expires:  time.Now().Add(10 * time.Minute),
-        HttpOnly: true,        // Prevents JavaScript access (XSS protection)
-        Secure:   false,       // Must be false for http://localhost (set true in production)
-        SameSite: http.SameSiteLaxMode,  // ✅ Allows same-site OAuth redirects
-        Path:     "/",         // ✅ Ensures cookie is sent to all backend paths
-    }
-    http.SetCookie(w, &cookie)
+	cookie := http.Cookie{
+		Name:     "oauthstate",
+		Value:    state,
+		Expires:  time.Now().Add(10 * time.Minute),
+		HttpOnly: true,                   // Prevents JavaScript access (XSS protection)
+		Secure:   h.cfg.SecureCookie,     // true in production, false for localhost
+		SameSite: http.SameSiteLaxMode,   // Allows same-site OAuth redirects
+		Path:     "/",                    // Ensures cookie is sent to all backend paths
+	}
+	http.SetCookie(w, &cookie)
 
-    return state
+	return state
 }

@@ -3,8 +3,7 @@ import { Awareness } from "y-protocols/awareness";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 import { documentsApi } from "../api/document";
-
-const WS_URL = import.meta.env.VITE_WS_URL || "wss://docnest-backend-mingda.fly.dev/ws";
+import { WS_URL } from "../config";
 
 export interface YjsProviders {
   ydoc: Y.Doc;
@@ -23,7 +22,8 @@ export const createYjsDocument = async (
   documentId: string,
   _user: YjsUser,
   token: string,
-  shareToken?: string
+  shareToken?: string,
+  wsUrlOverride?: string
 ): Promise<YjsProviders> => {
   // Create Yjs document
   const ydoc = new Y.Doc();
@@ -46,8 +46,9 @@ export const createYjsDocument = async (
   const wsParams: { [key: string]: string } = shareToken
     ? { share: shareToken }
     : { token: token };
+  const wsUrl = wsUrlOverride || WS_URL;
   const websocketProvider = new WebsocketProvider(
-    WS_URL,
+    wsUrl,
     documentId,
     ydoc,
     { params: wsParams }

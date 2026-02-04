@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../config';
 import './LoginPage.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://docnest-backend-mingda.fly.dev/api";
 
 function LoginPage() {
   const { user, loading } = useAuth();
