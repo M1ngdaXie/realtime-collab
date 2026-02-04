@@ -51,9 +51,9 @@ type Hub struct {
 func NewHub() *Hub {
 	return &Hub{
 		rooms:      make(map[string]*Room),
-		Register:   make(chan *Client),
-		Unregister: make(chan *Client),
-		Broadcast:  make(chan *Message, 1024),
+		Register:   make(chan *Client, 256),
+		Unregister: make(chan *Client, 256),
+		Broadcast:  make(chan *Message, 4096),
 	}
 }
 
