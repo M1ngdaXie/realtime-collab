@@ -153,6 +153,7 @@ func (h *ShareHandler) DeleteShare(c *gin.Context) {
 
 	c.Status(204)
 }
+
 // CreateShareLink generates a public share link
 func (h *ShareHandler) CreateShareLink(c *gin.Context) {
 	documentID, err := uuid.Parse(c.Param("id"))

@@ -33,3 +33,5 @@ build/
 
 # Docker volumes and data
 postgres_data/
+
+.claude/

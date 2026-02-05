@@ -11,16 +11,15 @@ import (
 	"github.com/google/uuid"
 )
 
-  type DocumentHandler struct {
-  	store *store.PostgresStore
-  }
+type DocumentHandler struct {
+	store *store.PostgresStore
+}
 
-  func NewDocumentHandler(s *store.PostgresStore) *DocumentHandler {
-  	return &DocumentHandler{store: s}
-  }
+func NewDocumentHandler(s *store.PostgresStore) *DocumentHandler {
+	return &DocumentHandler{store: s}
+}
 
-
-  // CreateDocument creates a new document (requires auth)
+// CreateDocument creates a new document (requires auth)
 func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	userID := auth.GetUserFromContext(c)
 	if userID == nil {
@@ -44,7 +43,7 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	c.JSON(http.StatusCreated, doc)
 }
 
-  func (h *DocumentHandler) ListDocuments(c *gin.Context) {
+func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 	userID := auth.GetUserFromContext(c)
 	fmt.Println("Getting userId, which is : ")
 	fmt.Println(userID)
@@ -66,8 +65,7 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 	})
 }
 
-
-  func (h *DocumentHandler) GetDocument(c *gin.Context) {
+func (h *DocumentHandler) GetDocument(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		respondBadRequest(c, "Invalid document ID format")
@@ -104,8 +102,9 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 
 	c.JSON(http.StatusOK, doc)
 }
-  // GetDocumentState returns the Yjs state for a document
-  // GetDocumentState retrieves document state (requires view permission)
+
+// GetDocumentState returns the Yjs state for a document
+// GetDocumentState retrieves document state (requires view permission)
 func (h *DocumentHandler) GetDocumentState(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -143,7 +142,7 @@ func (h *DocumentHandler) GetDocumentState(c *gin.Context) {
 	c.Data(http.StatusOK, "application/octet-stream", state)
 }
 
-  // UpdateDocumentState updates document state (requires edit permission)
+// UpdateDocumentState updates document state (requires edit permission)
 func (h *DocumentHandler) UpdateDocumentState(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -195,7 +194,7 @@ func (h *DocumentHandler) UpdateDocumentState(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "State updated successfully"})
 }
 
-  // DeleteDocument deletes a document (owner only)
+// DeleteDocument deletes a document (owner only)
 func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -237,107 +236,109 @@ func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 
 // GetDocumentPermission returns the user's permission level for a document
 func (h *DocumentHandler) GetDocumentPermission(c *gin.Context) {
-    documentID, err := uuid.Parse(c.Param("id"))
-    if err != nil {
-        respondBadRequest(c, "Invalid document ID format")
-        return
-    }
+	documentID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		respondBadRequest(c, "Invalid document ID format")
+		return
+	}
 
-    // 1. 先检查文档是否存在 (Good practice)
-    _, err = h.store.GetDocument(documentID)
-    if err != nil {
-        respondNotFound(c, "document")
-        return
-    }
+	// 1. 先检查文档是否存在 (Good practice)
+	_, err = h.store.GetDocument(documentID)
+	if err != nil {
+		respondNotFound(c, "document")
+		return
+	}
 
-    userID := auth.GetUserFromContext(c)
-    shareToken := c.Query("share")
+	userID := auth.GetUserFromContext(c)
+	shareToken := c.Query("share")
 
-    // 定义两个临时变量，用来存两边的结果
-    var userPerm string  // 存 document_shares 的结果
-    var tokenPerm string // 存 share_token 的结果
+	// 定义两个临时变量，用来存两边的结果
+	var userPerm string  // 存 document_shares 的结果
+	var tokenPerm string // 存 share_token 的结果
 
-    // ====================================================
-    // 步骤 A: 检查个人权限 (Base Permission)
-    // ====================================================
-    if userID != nil {
-        perm, err := h.store.GetUserPermission(c.Request.Context(), documentID, *userID)
-        if err != nil {
-            respondInternalError(c, "Failed to get user permission", err)
-            return
-        }
-        userPerm = perm 
-        // ⚠️ 注意：如果 perm 是空，这里不报错！继续往下走！
-    }
+	// ====================================================
+	// 步骤 A: 检查个人权限 (Base Permission)
+	// ====================================================
+	if userID != nil {
+		perm, err := h.store.GetUserPermission(c.Request.Context(), documentID, *userID)
+		if err != nil {
+			respondInternalError(c, "Failed to get user permission", err)
+			return
+		}
+		userPerm = perm
+		// ⚠️ 注意：如果 perm 是空，这里不报错！继续往下走！
+	}
 
-    // ====================================================
-    // 步骤 B: 检查 Token 权限 (Upgrade Permission)
-    // ====================================================
-    if shareToken != "" {
-        // 先验证 Token 是否有效
-        valid, err := h.store.ValidateShareToken(c.Request.Context(), documentID, shareToken)
-        if err != nil {
-            respondInternalError(c, "Failed to validate token", err)
-            return
-        }
-        
-        // 只有 Token 有效才去取权限
-        if valid {
-            p, err := h.store.GetShareLinkPermission(c.Request.Context(), documentID)
-            if err != nil {
-                respondInternalError(c, "Failed to get token permission", err)
-                return
-            }
-            tokenPerm = p
-            // 处理数据库老数据的 fallback
-            if tokenPerm == "" { tokenPerm = "view" } 
-        }
-    }
+	// ====================================================
+	// 步骤 B: 检查 Token 权限 (Upgrade Permission)
+	// ====================================================
+	if shareToken != "" {
+		// 先验证 Token 是否有效
+		valid, err := h.store.ValidateShareToken(c.Request.Context(), documentID, shareToken)
+		if err != nil {
+			respondInternalError(c, "Failed to validate token", err)
+			return
+		}
 
-    // ====================================================
-    // 步骤 C: ⚡️ 权限合并与计算 (The Brain)
-    // ====================================================
-    
-    finalPermission := ""
-    role := "viewer" // 默认角色
+		// 只有 Token 有效才去取权限
+		if valid {
+			p, err := h.store.GetShareLinkPermission(c.Request.Context(), documentID)
+			if err != nil {
+				respondInternalError(c, "Failed to get token permission", err)
+				return
+			}
+			tokenPerm = p
+			// 处理数据库老数据的 fallback
+			if tokenPerm == "" {
+				tokenPerm = "view"
+			}
+		}
+	}
 
-    // 1. 如果是 Owner，无敌，直接返回
-    if userPerm == "owner" {
-        finalPermission = "edit"
-        role = "owner"
-        // 直接返回，不用看 Token 了
-        c.JSON(http.StatusOK, models.PermissionResponse{
-            Permission: finalPermission,
-            Role:       role,
-        })
-        return
-    }
+	// ====================================================
+	// 步骤 C: ⚡️ 权限合并与计算 (The Brain)
+	// ====================================================
 
-    // 2. 比较 User 和 Token，取最大值
-    // 逻辑：只要任意一边给了 "edit"，那就是 "edit"
-    if userPerm == "edit" || tokenPerm == "edit" {
-        finalPermission = "edit"
-        role = "editor"
-    } else if userPerm == "view" || tokenPerm == "view" {
-        finalPermission = "view"
-        role = "viewer"
-    }
+	finalPermission := ""
+	role := "viewer" // 默认角色
 
-    // ====================================================
-    // 步骤 D: 最终判决
-    // ====================================================
-    if finalPermission == "" {
-        // 既没个人权限，Token 也不对（或者没 Token）
-        if userID == nil {
-             respondUnauthorized(c, "Authentication required") // 没登录且没Token
-        } else {
-             respondForbidden(c, "You don't have permission") // 登录了但没权限
-        }
-        return
-    }
+	// 1. 如果是 Owner，无敌，直接返回
+	if userPerm == "owner" {
+		finalPermission = "edit"
+		role = "owner"
+		// 直接返回，不用看 Token 了
+		c.JSON(http.StatusOK, models.PermissionResponse{
+			Permission: finalPermission,
+			Role:       role,
+		})
+		return
+	}
 
-    c.JSON(http.StatusOK, models.PermissionResponse{
-        Permission: finalPermission,
-        Role:       role,
-    })
+	// 2. 比较 User 和 Token，取最大值
+	// 逻辑：只要任意一边给了 "edit"，那就是 "edit"
+	if userPerm == "edit" || tokenPerm == "edit" {
+		finalPermission = "edit"
+		role = "editor"
+	} else if userPerm == "view" || tokenPerm == "view" {
+		finalPermission = "view"
+		role = "viewer"
+	}
+
+	// ====================================================
+	// 步骤 D: 最终判决
+	// ====================================================
+	if finalPermission == "" {
+		// 既没个人权限，Token 也不对（或者没 Token）
+		if userID == nil {
+			respondUnauthorized(c, "Authentication required") // 没登录且没Token
+		} else {
+			respondForbidden(c, "You don't have permission") // 登录了但没权限
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, models.PermissionResponse{
+		Permission: finalPermission,
+		Role:       role,
+	})
 }

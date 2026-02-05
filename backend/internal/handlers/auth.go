@@ -64,10 +64,10 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 // GoogleCallback handles Google OAuth callback
 func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	oauthState, err := c.Cookie("oauthstate")
-    if err != nil || c.Query("state") != oauthState {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid oauth state"})
-        return
-    }
+	if err != nil || c.Query("state") != oauthState {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid oauth state"})
+		return
+	}
 	log.Println("Google callback state:", c.Query("state"))
 	// Exchange code for token
 	token, err := h.googleConfig.Exchange(c.Request.Context(), c.Query("code"))
@@ -94,11 +94,11 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		Name    string `json:"name"`
 		Picture string `json:"picture"`
 	}
-	
+
 	if err := json.Unmarshal(data, &userInfo); err != nil {
-    log.Printf("Failed to parse Google response: %v | Data: %s", err, string(data))
-    c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid Google response"})
-    return
+		log.Printf("Failed to parse Google response: %v | Data: %s", err, string(data))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid Google response"})
+		return
 	}
 	log.Println("Google user info:", userInfo)
 	// Upsert user in database
@@ -118,10 +118,10 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	// Create session and JWT
 	jwt, err := h.createSessionAndJWT(c, user)
 	if err != nil {
-		fmt.Printf("❌ DATABASE ERROR: %v\n", err) 
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "error": fmt.Sprintf("CreateSession Error: %v", err), 
-        })
+		fmt.Printf("❌ DATABASE ERROR: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("CreateSession Error: %v", err),
+		})
 		return
 	}
 
@@ -140,10 +140,10 @@ func (h *AuthHandler) GithubLogin(c *gin.Context) {
 // GithubCallback handles GitHub OAuth callback
 func (h *AuthHandler) GithubCallback(c *gin.Context) {
 	oauthState, err := c.Cookie("oauthstate")
-    if err != nil || c.Query("state") != oauthState {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid oauth state"})
-        return
-    }
+	if err != nil || c.Query("state") != oauthState {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid oauth state"})
+		return
+	}
 	log.Println("Github callback state:", c.Query("state"))
 	code := c.Query("code")
 	if code == "" {
@@ -160,7 +160,7 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 
 	// Get user info from GitHub
 	client := h.githubConfig.Client(c.Request.Context(), token)
-	
+
 	// Get user profile
 	resp, err := client.Get("https://api.github.com/user")
 	if err != nil {
@@ -178,10 +178,10 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 		AvatarURL string `json:"avatar_url"`
 	}
 	if err := json.Unmarshal(data, &userInfo); err != nil {
-    log.Printf("Failed to parse GitHub response: %v | Data: %s", err, string(data))
-    c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid GitHub response"})
-    return
-}
+		log.Printf("Failed to parse GitHub response: %v | Data: %s", err, string(data))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid GitHub response"})
+		return
+	}
 
 	// If email is not public, fetch it separately
 	if userInfo.Email == "" {
@@ -315,10 +315,10 @@ func (h *AuthHandler) generateStateOauthCookie(w http.ResponseWriter) string {
 		Name:     "oauthstate",
 		Value:    state,
 		Expires:  time.Now().Add(10 * time.Minute),
-		HttpOnly: true,                   // Prevents JavaScript access (XSS protection)
-		Secure:   h.cfg.SecureCookie,     // true in production, false for localhost
-		SameSite: http.SameSiteLaxMode,   // Allows same-site OAuth redirects
-		Path:     "/",                    // Ensures cookie is sent to all backend paths
+		HttpOnly: true,                 // Prevents JavaScript access (XSS protection)
+		Secure:   h.cfg.SecureCookie,   // true in production, false for localhost
+		SameSite: http.SameSiteLaxMode, // Allows same-site OAuth redirects
+		Path:     "/",                  // Ensures cookie is sent to all backend paths
 	}
 	http.SetCookie(w, &cookie)
 

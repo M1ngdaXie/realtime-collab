@@ -91,5 +91,5 @@ func respondInternalError(c *gin.Context, message string, err error) {
 	respondWithError(c, http.StatusInternalServerError, "internal_error", message)
 }
 func respondInvalidID(c *gin.Context, message string) {
-    respondWithError(c, http.StatusBadRequest, "invalid_id", message)
+	respondWithError(c, http.StatusBadRequest, "invalid_id", message)
 }

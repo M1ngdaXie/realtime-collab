@@ -48,10 +48,10 @@ func (wsh *WebSocketHandler) HandleWebSocketLoadTest(c *gin.Context) {
 	clientID := uuid.New().String()
 	client := hub.NewClient(
 		clientID,
-		nil,           // userID - nil for anonymous
-		userName,      // userName
-		nil,           // userAvatar
-		"edit",        // permission - full access for load testing
+		nil,      // userID - nil for anonymous
+		userName, // userName
+		nil,      // userAvatar
+		"edit",   // permission - full access for load testing
 		conn,
 		wsh.hub,
 		roomID,

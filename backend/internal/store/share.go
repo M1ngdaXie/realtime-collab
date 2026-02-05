@@ -14,34 +14,34 @@ import (
 // CreateDocumentShare creates a new share or updates existing one
 // Returns the share and a boolean indicating if it was newly created (true) or updated (false)
 func (s *PostgresStore) CreateDocumentShare(ctx context.Context, documentID, userID uuid.UUID, permission string, createdBy *uuid.UUID) (*models.DocumentShare, bool, error) {
-    // First check if share already exists
-    var existingID uuid.UUID
-    checkQuery := `SELECT id FROM document_shares WHERE document_id = $1 AND user_id = $2`
-    err := s.db.QueryRowContext(ctx, checkQuery, documentID, userID).Scan(&existingID)
-    isNewShare := err != nil // If error (not found), it's a new share
+	// First check if share already exists
+	var existingID uuid.UUID
+	checkQuery := `SELECT id FROM document_shares WHERE document_id = $1 AND user_id = $2`
+	err := s.db.QueryRowContext(ctx, checkQuery, documentID, userID).Scan(&existingID)
+	isNewShare := err != nil // If error (not found), it's a new share
 
-    query := `
+	query := `
         INSERT INTO document_shares (document_id, user_id, permission, created_by)
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (document_id, user_id) DO UPDATE SET permission = EXCLUDED.permission
         RETURNING id, document_id, user_id, permission, created_at, created_by
     `
 
-    var share models.DocumentShare
-    err = s.db.QueryRowContext(ctx, query, documentID, userID, permission, createdBy).Scan(
-        &share.ID, &share.DocumentID, &share.UserID, &share.Permission,
-        &share.CreatedAt, &share.CreatedBy,
-    )
-    if err != nil {
-        return nil, false, err
-    }
+	var share models.DocumentShare
+	err = s.db.QueryRowContext(ctx, query, documentID, userID, permission, createdBy).Scan(
+		&share.ID, &share.DocumentID, &share.UserID, &share.Permission,
+		&share.CreatedAt, &share.CreatedBy,
+	)
+	if err != nil {
+		return nil, false, err
+	}
 
-    return &share, isNewShare, nil
+	return &share, isNewShare, nil
 }
 
 // ListDocumentShares lists all shares for a document
 func (s *PostgresStore) ListDocumentShares(ctx context.Context, documentID uuid.UUID) ([]models.DocumentShareWithUser, error) {
-    query := `
+	query := `
         SELECT
             ds.id, ds.document_id, ds.user_id, ds.permission, ds.created_at, ds.created_by,
             u.id, u.email, u.name, u.avatar_url, u.provider, u.provider_user_id, u.created_at, u.updated_at, u.last_login_at
@@ -51,38 +51,38 @@ func (s *PostgresStore) ListDocumentShares(ctx context.Context, documentID uuid.
         ORDER BY ds.created_at DESC
     `
 
-    rows, err := s.db.QueryContext(ctx, query, documentID)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	rows, err := s.db.QueryContext(ctx, query, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    var shares []models.DocumentShareWithUser
-    for rows.Next() {
-        var share models.DocumentShareWithUser
-        err := rows.Scan(
-            &share.ID, &share.DocumentID, &share.UserID, &share.Permission, &share.CreatedAt, &share.CreatedBy,
-            &share.User.ID, &share.User.Email, &share.User.Name, &share.User.AvatarURL, &share.User.Provider,
-            &share.User.ProviderUserID, &share.User.CreatedAt, &share.User.UpdatedAt, &share.User.LastLoginAt,
-        )
-        if err != nil {
-            return nil, err
-        }
-        shares = append(shares, share)
-    }
+	var shares []models.DocumentShareWithUser
+	for rows.Next() {
+		var share models.DocumentShareWithUser
+		err := rows.Scan(
+			&share.ID, &share.DocumentID, &share.UserID, &share.Permission, &share.CreatedAt, &share.CreatedBy,
+			&share.User.ID, &share.User.Email, &share.User.Name, &share.User.AvatarURL, &share.User.Provider,
+			&share.User.ProviderUserID, &share.User.CreatedAt, &share.User.UpdatedAt, &share.User.LastLoginAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		shares = append(shares, share)
+	}
 
-    return shares, nil
+	return shares, nil
 }
 
 // DeleteDocumentShare deletes a share
 func (s *PostgresStore) DeleteDocumentShare(ctx context.Context, documentID, userID uuid.UUID) error {
-    _, err := s.db.ExecContext(ctx, "DELETE FROM document_shares WHERE document_id = $1 AND user_id = $2", documentID, userID)
-    return err
+	_, err := s.db.ExecContext(ctx, "DELETE FROM document_shares WHERE document_id = $1 AND user_id = $2", documentID, userID)
+	return err
 }
 
 // CanViewDocument checks if user can view document (owner OR has any share)
 func (s *PostgresStore) CanViewDocument(ctx context.Context, documentID, userID uuid.UUID) (bool, error) {
-    query := `
+	query := `
         SELECT EXISTS(
             SELECT 1 FROM documents WHERE id = $1 AND owner_id = $2
             UNION
@@ -90,14 +90,14 @@ func (s *PostgresStore) CanViewDocument(ctx context.Context, documentID, userID 
         )
     `
 
-    var canView bool
-    err := s.db.QueryRowContext(ctx, query, documentID, userID).Scan(&canView)
-    return canView, err
+	var canView bool
+	err := s.db.QueryRowContext(ctx, query, documentID, userID).Scan(&canView)
+	return canView, err
 }
 
 // CanEditDocument checks if user can edit document (owner OR has edit share)
 func (s *PostgresStore) CanEditDocument(ctx context.Context, documentID, userID uuid.UUID) (bool, error) {
-    query := `
+	query := `
         SELECT EXISTS(
             SELECT 1 FROM documents WHERE id = $1 AND owner_id = $2
             UNION
@@ -105,21 +105,21 @@ func (s *PostgresStore) CanEditDocument(ctx context.Context, documentID, userID 
         )
     `
 
-    var canEdit bool
-    err := s.db.QueryRowContext(ctx, query, documentID, userID).Scan(&canEdit)
-    return canEdit, err
+	var canEdit bool
+	err := s.db.QueryRowContext(ctx, query, documentID, userID).Scan(&canEdit)
+	return canEdit, err
 }
 
 // IsDocumentOwner checks if user is the owner
 func (s *PostgresStore) IsDocumentOwner(ctx context.Context, documentID, userID uuid.UUID) (bool, error) {
-    query := `SELECT owner_id = $2 FROM documents WHERE id = $1`
+	query := `SELECT owner_id = $2 FROM documents WHERE id = $1`
 
-    var isOwner bool
-    err := s.db.QueryRowContext(ctx, query, documentID, userID).Scan(&isOwner)
-    if err == sql.ErrNoRows {
-        return false, nil
-    }
-    return isOwner, err
+	var isOwner bool
+	err := s.db.QueryRowContext(ctx, query, documentID, userID).Scan(&isOwner)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	return isOwner, err
 }
 func (s *PostgresStore) GenerateShareToken(ctx context.Context, documentID uuid.UUID, permission string) (string, error) {
 	// Generate random 32-byte token

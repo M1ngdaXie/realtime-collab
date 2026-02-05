@@ -10,8 +10,8 @@ import (
 type DocumentVersion struct {
 	ID              uuid.UUID  `json:"id"`
 	DocumentID      uuid.UUID  `json:"document_id"`
-	YjsSnapshot     []byte     `json:"-"`                    // Omit from JSON (binary)
-	TextPreview     *string    `json:"text_preview"`         // Full plain text
+	YjsSnapshot     []byte     `json:"-"`            // Omit from JSON (binary)
+	TextPreview     *string    `json:"text_preview"` // Full plain text
 	VersionNumber   int        `json:"version_number"`
 	CreatedBy       *uuid.UUID `json:"created_by"`
 	VersionLabel    *string    `json:"version_label"`

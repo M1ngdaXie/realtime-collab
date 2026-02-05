@@ -70,7 +70,7 @@ func TestShareHandlerSuite(t *testing.T) {
 
 func (s *ShareHandlerSuite) TestCreateShare_ViewPermission() {
 	body := map[string]interface{}{
-		"user_email":      "bob@test.com",
+		"user_email": "bob@test.com",
 		"permission": "view",
 	}
 
@@ -87,7 +87,7 @@ func (s *ShareHandlerSuite) TestCreateShare_ViewPermission() {
 
 func (s *ShareHandlerSuite) TestCreateShare_EditPermission() {
 	body := map[string]interface{}{
-		"user_email":      "bob@test.com",
+		"user_email": "bob@test.com",
 		"permission": "edit",
 	}
 
@@ -104,7 +104,7 @@ func (s *ShareHandlerSuite) TestCreateShare_EditPermission() {
 
 func (s *ShareHandlerSuite) TestCreateShare_NonOwnerDenied() {
 	body := map[string]interface{}{
-		"user_email":      "charlie@test.com",
+		"user_email": "charlie@test.com",
 		"permission": "view",
 	}
 
@@ -118,7 +118,7 @@ func (s *ShareHandlerSuite) TestCreateShare_NonOwnerDenied() {
 
 func (s *ShareHandlerSuite) TestCreateShare_UserNotFound() {
 	body := map[string]interface{}{
-		"user_email":      "nonexistent@test.com",
+		"user_email": "nonexistent@test.com",
 		"permission": "view",
 	}
 
@@ -131,7 +131,7 @@ func (s *ShareHandlerSuite) TestCreateShare_UserNotFound() {
 
 func (s *ShareHandlerSuite) TestCreateShare_InvalidPermission() {
 	body := map[string]interface{}{
-		"user_email":      "bob@test.com",
+		"user_email": "bob@test.com",
 		"permission": "admin", // Invalid permission
 	}
 
@@ -145,7 +145,7 @@ func (s *ShareHandlerSuite) TestCreateShare_InvalidPermission() {
 func (s *ShareHandlerSuite) TestCreateShare_UpdatesExisting() {
 	// Create initial share with view permission
 	body := map[string]interface{}{
-		"user_email":      "bob@test.com",
+		"user_email": "bob@test.com",
 		"permission": "view",
 	}
 
@@ -169,7 +169,7 @@ func (s *ShareHandlerSuite) TestCreateShare_UpdatesExisting() {
 
 func (s *ShareHandlerSuite) TestCreateShare_Unauthorized() {
 	body := map[string]interface{}{
-		"user_email":      "bob@test.com",
+		"user_email": "bob@test.com",
 		"permission": "view",
 	}
 
@@ -182,7 +182,7 @@ func (s *ShareHandlerSuite) TestCreateShare_Unauthorized() {
 
 func (s *ShareHandlerSuite) TestCreateShare_InvalidDocumentID() {
 	body := map[string]interface{}{
-		"user_email":      "bob@test.com",
+		"user_email": "bob@test.com",
 		"permission": "view",
 	}
 
@@ -206,8 +206,8 @@ func (s *ShareHandlerSuite) TestListShares_OwnerSeesAll() {
 	s.assertSuccessResponse(w, http.StatusOK)
 
 	var response models.ShareListResponse
-s.parseJSONResponse(w, &response)
-shares := response.Shares
+	s.parseJSONResponse(w, &response)
+	shares := response.Shares
 	s.GreaterOrEqual(len(shares), 1, "Should have at least one share")
 }
 
@@ -229,8 +229,8 @@ func (s *ShareHandlerSuite) TestListShares_EmptyList() {
 	s.assertSuccessResponse(w, http.StatusOK)
 
 	var response models.ShareListResponse
-s.parseJSONResponse(w, &response)
-shares := response.Shares
+	s.parseJSONResponse(w, &response)
+	shares := response.Shares
 	s.Equal(0, len(shares), "Should have no shares")
 }
 
@@ -243,8 +243,8 @@ func (s *ShareHandlerSuite) TestListShares_IncludesUserDetails() {
 	s.assertSuccessResponse(w, http.StatusOK)
 
 	var response models.ShareListResponse
-s.parseJSONResponse(w, &response)
-shares := response.Shares
+	s.parseJSONResponse(w, &response)
+	shares := response.Shares
 
 	if len(shares) > 0 {
 		share := shares[0]
@@ -266,7 +266,7 @@ func (s *ShareHandlerSuite) TestListShares_OrderedByCreatedAt() {
 	users := []string{"bob@test.com", "charlie@test.com"}
 	for _, email := range users {
 		body := map[string]interface{}{
-			"user_email":      email,
+			"user_email": email,
 			"permission": "view",
 		}
 		w, httpReq, err := s.makeAuthRequest("POST", fmt.Sprintf("/api/documents/%s/shares", s.testData.AlicePrivateDoc), body, s.testData.AliceID)
