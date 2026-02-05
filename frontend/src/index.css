@@ -353,22 +353,53 @@
 
   .page-content {
     display: flex;
+    flex-direction: column; /* Mobile: stack vertically */
     flex: 1;
     overflow: hidden;
+  }
+
+  @media (min-width: 768px) {
+    .page-content {
+      flex-direction: row; /* Desktop: horizontal layout */
+    }
   }
 
   .main-area {
     flex: 1;
     overflow: auto;
-    padding: 2rem;
+    padding: 0.5rem; /* Mobile: minimal padding */
+  }
+
+  @media (min-width: 640px) {
+    .main-area {
+      padding: 1rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .main-area {
+      padding: 2rem; /* Desktop: original padding */
+    }
   }
 
   .sidebar {
-    width: 250px;
+    width: 100%; /* Mobile: full width */
     background: var(--pixel-white);
     background-image: url('/pixel-patterns.svg#pixel-scanlines');
-    border-left: 3px solid var(--pixel-outline);
+    border-top: 3px solid var(--pixel-outline); /* Mobile: top border */
+    border-left: none;
     padding: 1rem;
+    max-height: 200px; /* Mobile: limit height */
+    overflow-y: auto;
+  }
+
+  @media (min-width: 768px) {
+    .sidebar {
+      width: 250px; /* Desktop: fixed width */
+      max-height: none;
+      border-top: none;
+      border-left: 3px solid var(--pixel-outline);
+    }
   }
 
   /* Editor */
@@ -424,8 +455,20 @@
   }
 
   .editor-content {
-    padding: 2rem;
+    padding: 0.5rem; /* Mobile: minimal padding */
     min-height: 500px;
+  }
+
+  @media (min-width: 640px) {
+    .editor-content {
+      padding: 1rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .editor-content {
+      padding: 2rem; /* Desktop: original padding */
+    }
   }
 
   .ProseMirror {
@@ -480,9 +523,17 @@
   /* Kanban Board */
   .kanban-board {
     display: flex;
+    flex-direction: column; /* Mobile: stack vertically */
     gap: 1rem;
-    overflow-x: auto;
+    overflow-x: visible;
     padding-bottom: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .kanban-board {
+      flex-direction: row; /* Tablet+: horizontal scrolling */
+      overflow-x: auto;
+    }
   }
 
   .kanban-column {
@@ -491,8 +542,24 @@
     border-radius: 0;
     border: 3px solid var(--pixel-outline);
     padding: 1rem;
-    min-width: 300px;
-    max-width: 300px;
+    width: 100%; /* Mobile: full width */
+    min-width: unset;
+    max-width: unset;
+  }
+
+  @media (min-width: 640px) {
+    .kanban-column {
+      width: auto;
+      min-width: 280px; /* Tablet: smaller fixed width */
+      max-width: 280px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .kanban-column {
+      min-width: 300px; /* Desktop: original width */
+      max-width: 300px;
+    }
   }
 
   .column-title {
