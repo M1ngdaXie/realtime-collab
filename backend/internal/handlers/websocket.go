@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/M1ngdaXie/realtime-collab/internal/auth"
 	"github.com/M1ngdaXie/realtime-collab/internal/config"
@@ -12,6 +13,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
+
+// connectionSem limits concurrent WebSocket connection handshakes
+// to prevent overwhelming the database during connection storms
+var connectionSem = make(chan struct{}, 200)
 
 type WebSocketHandler struct {
 	hub   *hub.Hub
@@ -44,6 +49,15 @@ func (wsh *WebSocketHandler) getUpgrader() websocket.Upgrader {
 }
 
 func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
+	// Acquire semaphore to limit concurrent connection handshakes
+	select {
+	case connectionSem <- struct{}{}:
+		defer func() { <-connectionSem }()
+	case <-time.After(10 * time.Second):
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "server busy, retry later"})
+		return
+	}
+
 	roomID := c.Param("roomId")
 	if roomID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "roomId is required"})

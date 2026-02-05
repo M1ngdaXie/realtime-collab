@@ -60,8 +60,8 @@ type Hub struct {
 func NewHub(messagebus messagebus.MessageBus, serverID string, logger *zap.Logger) *Hub {
 	return &Hub{
 		rooms:      make(map[string]*Room),
-		Register:   make(chan *Client, 256),
-		Unregister: make(chan *Client, 256),
+		Register:   make(chan *Client, 2048),
+		Unregister: make(chan *Client, 2048),
 		Broadcast:  make(chan *Message, 4096),
 		// redis
 		messagebus:   messagebus,
@@ -89,7 +89,7 @@ func (h *Hub) registerClient(client *Client) {
 	defer h.mu.Unlock()
 
 	room, exists := h.rooms[client.roomID]
-	
+
 	// --- 1. 初始化房间 (仅针对该服务器上的第一个人) ---
 	if !exists {
 		room = &Room{
@@ -242,25 +242,26 @@ func (h *Hub) unregisterClient(client *Client) {
 		}()
 	}
 
-	// 3. 协作清理：发送“僵尸删除”消息给其他幸存者
-	if remainingClientsCount > 0 {
-		client.idsMu.Lock()
-		clientClocks := make(map[uint64]uint64, len(client.observedYjsIDs))
-		for id, clock := range client.observedYjsIDs {
-			clientClocks[id] = clock
-		}
-		client.idsMu.Unlock()
+	// 3. 协作清理：发送"僵尸删除"消息
+	// 注意：无论本地是否有其他客户端，都要发布到 Redis，因为其他服务器可能有客户端
+	client.idsMu.Lock()
+	clientClocks := make(map[uint64]uint64, len(client.observedYjsIDs))
+	for id, clock := range client.observedYjsIDs {
+		clientClocks[id] = clock
+	}
+	client.idsMu.Unlock()
 
-		if len(clientClocks) > 0 {
-			// 构造 Yjs 协议格式的删除消息
-			deleteMsg := MakeYjsDeleteMessage(clientClocks)
+	if len(clientClocks) > 0 {
+		// 构造 Yjs 协议格式的删除消息
+		deleteMsg := MakeYjsDeleteMessage(clientClocks)
+
+		// 本地广播：只有当本地还有其他客户端时才需要
+		if remainingClientsCount > 0 {
 			msg := &Message{
 				RoomID: client.roomID,
 				Data:   deleteMsg,
 				sender: nil, // 系统发送
 			}
-
-			// 异步发送到广播通道，避免在持有 h.mu 时发生死锁
 			go func() {
 				select {
 				case h.Broadcast <- msg:
@@ -269,37 +270,50 @@ func (h *Hub) unregisterClient(client *Client) {
 				}
 			}()
 		}
+
+		// 发布到 Redis：无论本地是否有客户端，都要通知其他服务器
+		if !h.fallbackMode && h.messagebus != nil {
+			go func(roomID string, data []byte) {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				if err := h.messagebus.Publish(ctx, roomID, data); err != nil {
+					h.logger.Error("Failed to publish delete message to Redis",
+						zap.String("room_id", roomID),
+						zap.Error(err))
+				} else {
+					h.logger.Debug("Published delete message to Redis",
+						zap.String("room_id", roomID),
+						zap.Int("yjs_ids_count", len(clientClocks)))
+				}
+			}(client.roomID, deleteMsg)
+		}
 	}
 
-	// 4. 房间清理：如果是最后一个人，彻底销毁房间资源
-if remainingClientsCount == 0 {
-    h.logger.Info("Room is empty, performing deep cleanup", zap.String("room_id", client.roomID))
+	// 4. 房间清理：如果是本服务器最后一个人，清理本地资源
+	// 注意：不要删除整个 Redis Hash，因为其他服务器可能还有客户端
+	if remainingClientsCount == 0 {
+		h.logger.Info("Room is empty on this server, cleaning up local resources", zap.String("room_id", client.roomID))
 
-    // A. 停止转发协程
-    if room.cancel != nil {
-        room.cancel()
-    }
+		// A. 停止转发协程
+		if room.cancel != nil {
+			room.cancel()
+		}
 
-    // B. 分布式彻底清理 (关键改动！)
-    if !h.fallbackMode && h.messagebus != nil {
-        go func(rID string) {
-            ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-            defer cancel()
-            
-            // ✨ 1. 直接删除整个 Redis Hash 表，不留任何死角
-            if err := h.messagebus.ClearAllAwareness(ctx, rID); err != nil {
-                h.logger.Warn("Failed to clear total awareness from Redis", zap.Error(err))
-            }
+		// B. 取消 Redis 订阅（但不删除 awareness hash，其他服务器可能还有客户端）
+		if !h.fallbackMode && h.messagebus != nil {
+			go func(rID string) {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
 
-            // 2. 取消订阅
-            if err := h.messagebus.Unsubscribe(ctx, rID); err != nil {
-                h.logger.Warn("Failed to unsubscribe", zap.Error(err))
-            }
-        }(client.roomID)
-    }
-    // C. 从内存中移除
-    delete(h.rooms, client.roomID)
-}
+				// 只取消订阅，不清除 awareness（已在步骤2中按 Yjs ID 单独删除）
+				if err := h.messagebus.Unsubscribe(ctx, rID); err != nil {
+					h.logger.Warn("Failed to unsubscribe", zap.Error(err))
+				}
+			}(client.roomID)
+		}
+		// C. 从内存中移除
+		delete(h.rooms, client.roomID)
+	}
 
 	h.mu.Unlock() // 手动释放 Hub 锁
 }

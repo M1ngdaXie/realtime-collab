@@ -4,6 +4,7 @@ export type DocumentType = {
   id: string;
   name: string;
   type: "editor" | "kanban";
+  owner_id?: string;
   created_at: string;
   updated_at: string;
 }
