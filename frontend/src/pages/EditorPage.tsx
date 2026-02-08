@@ -1,3 +1,4 @@
+import { Eye } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Editor from "../components/Editor/Editor.tsx";
@@ -6,14 +7,13 @@ import UserList from "../components/Presence/UserList.tsx";
 import ShareModal from "../components/Share/ShareModal.tsx";
 import VersionHistoryPanel from "../components/VersionHistory/VersionHistoryPanel.tsx";
 import { useYjsDocument } from "../hooks/useYjsDocument.ts";
-import { Eye } from "lucide-react";
 
 const EditorPage = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const shareToken = searchParams.get('share') || undefined;
-  const { providers, synced, permission, role } = useYjsDocument(id!, shareToken);
+  const { providers, permission, role } = useYjsDocument(id!, shareToken);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
 

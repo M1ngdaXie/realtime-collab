@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import KanbanBoard from "../components/Kanban/KanbanBoard.tsx";
+import Navbar from "../components/Navbar.tsx";
 import UserList from "../components/Presence/UserList.tsx";
 import ShareModal from "../components/Share/ShareModal.tsx";
-import Navbar from "../components/Navbar.tsx";
 import { useYjsDocument } from "../hooks/useYjsDocument.ts";
 
 const KanbanPage = () => {
@@ -11,7 +11,7 @@ const KanbanPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const shareToken = searchParams.get('share') || undefined;
-  const { providers, synced } = useYjsDocument(id!, shareToken);
+  const { providers } = useYjsDocument(id!, shareToken);
   const [showShareModal, setShowShareModal] = useState(false);
 
   if (!providers) {
