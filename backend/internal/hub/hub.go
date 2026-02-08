@@ -37,10 +37,10 @@ type Client struct {
 	idsMu          sync.Mutex
 }
 type Room struct {
-	ID            string
-	clients       map[*Client]bool
-	mu            sync.RWMutex
-	cancel        context.CancelFunc
+	ID      string
+	clients map[*Client]bool
+	mu      sync.RWMutex
+	cancel  context.CancelFunc
 }
 
 type Hub struct {
@@ -55,10 +55,40 @@ type Hub struct {
 	logger       *zap.Logger
 	serverID     string
 	fallbackMode bool
+
+	// P0 fix: bounded worker pool for Redis Publish
+	publishQueue chan *Message // buffered queue consumed by fixed workers
+	publishDone  chan struct{} // close to signal workers to exit
+
+	subscribeMu sync.Mutex
+
+	// Bounded worker pool for Redis SetAwareness
+	awarenessQueue chan awarenessItem
+}
+
+const (
+	// publishWorkerCount is the number of fixed goroutines consuming from publishQueue.
+	// 50 workers can handle ~2000 msg/sec assuming ~25ms avg Redis RTT per publish.
+	publishWorkerCount = 50
+
+	// publishQueueSize is the buffer size for the publish queue channel.
+	publishQueueSize = 4096
+
+	// awarenessWorkerCount is the number of fixed goroutines consuming from awarenessQueue.
+	awarenessWorkerCount = 8
+
+	// awarenessQueueSize is the buffer size for awareness updates.
+	awarenessQueueSize = 4096
+)
+
+type awarenessItem struct {
+	roomID    string
+	clientIDs []uint64
+	data      []byte
 }
 
 func NewHub(messagebus messagebus.MessageBus, serverID string, logger *zap.Logger) *Hub {
-	return &Hub{
+	h := &Hub{
 		rooms:      make(map[string]*Room),
 		Register:   make(chan *Client, 2048),
 		Unregister: make(chan *Client, 2048),
@@ -67,8 +97,80 @@ func NewHub(messagebus messagebus.MessageBus, serverID string, logger *zap.Logge
 		messagebus:   messagebus,
 		serverID:     serverID,
 		logger:       logger,
-		fallbackMode: false, // 默认 Redis 正常工作
+		fallbackMode: false,
+		// P0 fix: bounded publish worker pool
+		publishQueue: make(chan *Message, publishQueueSize),
+		publishDone:  make(chan struct{}),
+		// bounded awareness worker pool
+		awarenessQueue: make(chan awarenessItem, awarenessQueueSize),
 	}
+
+	// Start the fixed worker pool for Redis publishing
+	h.startPublishWorkers(publishWorkerCount)
+	h.startAwarenessWorkers(awarenessWorkerCount)
+
+	return h
+}
+
+// startPublishWorkers launches n goroutines that consume from publishQueue
+// and publish messages to Redis. Workers exit when publishDone is closed.
+func (h *Hub) startPublishWorkers(n int) {
+	for i := 0; i < n; i++ {
+		go func(workerID int) {
+			for {
+				select {
+				case <-h.publishDone:
+					h.logger.Info("Publish worker exiting", zap.Int("worker_id", workerID))
+					return
+				case msg, ok := <-h.publishQueue:
+					if !ok {
+						return
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+					err := h.messagebus.Publish(ctx, msg.RoomID, msg.Data)
+
+					cancel()
+
+					if err != nil {
+						h.logger.Error("Redis Publish failed", zap.Error(err))
+					}
+				}
+			}
+		}(i)
+	}
+	h.logger.Info("Publish worker pool started", zap.Int("workers", n))
+}
+
+func (h *Hub) startAwarenessWorkers(n int) {
+	for i := 0; i < n; i++ {
+		go func(workerID int) {
+			for {
+				select {
+				case <-h.publishDone:
+					h.logger.Info("Awareness worker exiting", zap.Int("worker_id", workerID))
+					return
+				case item, ok := <-h.awarenessQueue:
+					if !ok {
+						return
+					}
+					if h.fallbackMode || h.messagebus == nil {
+						continue
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+					for _, clientID := range item.clientIDs {
+						if err := h.messagebus.SetAwareness(ctx, item.roomID, clientID, item.data); err != nil {
+							h.logger.Warn("Failed to cache awareness in Redis",
+								zap.Uint64("yjs_id", clientID),
+								zap.Error(err))
+						}
+					}
+					cancel()
+				}
+			}
+		}(i)
+	}
+	h.logger.Info("Awareness worker pool started", zap.Int("workers", n))
 }
 
 func (h *Hub) Run() {
@@ -85,10 +187,12 @@ func (h *Hub) Run() {
 }
 
 func (h *Hub) registerClient(client *Client) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	var room *Room
+	var exists bool
+	var needSubscribe bool
 
-	room, exists := h.rooms[client.roomID]
+	h.mu.Lock()
+	room, exists = h.rooms[client.roomID]
 
 	// --- 1. 初始化房间 (仅针对该服务器上的第一个人) ---
 	if !exists {
@@ -100,22 +204,40 @@ func (h *Hub) registerClient(client *Client) {
 		}
 		h.rooms[client.roomID] = room
 		h.logger.Info("Created new local room instance", zap.String("room_id", client.roomID))
+	}
+	if room.cancel == nil && !h.fallbackMode && h.messagebus != nil {
+		needSubscribe = true
+	}
+	h.mu.Unlock()
 
-		// 开启跨服订阅
-		if !h.fallbackMode && h.messagebus != nil {
+	// 开启跨服订阅（避免在 h.mu 下做网络 I/O）
+	if needSubscribe {
+		h.subscribeMu.Lock()
+		h.mu.RLock()
+		room = h.rooms[client.roomID]
+		alreadySubscribed := room != nil && room.cancel != nil
+		h.mu.RUnlock()
+		if !alreadySubscribed {
 			ctx, cancel := context.WithCancel(context.Background())
-			room.cancel = cancel
-
 			msgChan, err := h.messagebus.Subscribe(ctx, client.roomID)
 			if err != nil {
 				h.logger.Error("Redis Subscribe failed", zap.Error(err))
 				cancel()
-				room.cancel = nil
 			} else {
-				// 启动转发协程：确保以后别的服务器的消息能传给这台机器的人
-				go h.startRoomMessageForwarding(ctx, client.roomID, msgChan)
+				h.mu.Lock()
+				room = h.rooms[client.roomID]
+				if room == nil {
+					h.mu.Unlock()
+					cancel()
+					_ = h.messagebus.Unsubscribe(context.Background(), client.roomID)
+				} else {
+					room.cancel = cancel
+					h.mu.Unlock()
+					go h.startRoomMessageForwarding(ctx, client.roomID, msgChan)
+				}
 			}
 		}
+		h.subscribeMu.Unlock()
 	}
 
 	// --- 2. 将客户端加入本地房间列表 ---
@@ -129,61 +251,61 @@ func (h *Hub) registerClient(client *Client) {
 	// 无论是不是第一个人，只要有人进来，我们就去 Redis 抓取所有人的状态发给他
 	// hub/hub.go 内部的 registerClient 函数
 
-// ... 之前的代码保持不变 ...
+	// ... 之前的代码保持不变 ...
 
-if !h.fallbackMode && h.messagebus != nil {
-    go func(c *Client) {
-        ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-        defer cancel()
+	if !h.fallbackMode && h.messagebus != nil {
+		go func(c *Client) {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
 
-        // 1. 从 Redis 抓取
-        awarenessMap, err := h.messagebus.GetAllAwareness(ctx, c.roomID)
-        if err != nil {
-            h.logger.Error("Redis sync failed in goroutine", 
-                zap.String("client_id", c.ID), 
-                zap.Error(err))
-            return
-        }
+			// 1. 从 Redis 抓取
+			awarenessMap, err := h.messagebus.GetAllAwareness(ctx, c.roomID)
+			if err != nil {
+				h.logger.Error("Redis sync failed in goroutine",
+					zap.String("client_id", c.ID),
+					zap.Error(err))
+				return
+			}
 
-        if len(awarenessMap) == 0 {
-            h.logger.Debug("No awareness data found in Redis for sync", zap.String("room_id", c.roomID))
-            return
-        }
+			if len(awarenessMap) == 0 {
+				h.logger.Debug("No awareness data found in Redis for sync", zap.String("room_id", c.roomID))
+				return
+			}
 
-        h.logger.Info("Starting state delivery to joiner", 
-            zap.String("client_id", c.ID), 
-            zap.Int("items", len(awarenessMap)))
+			h.logger.Info("Starting state delivery to joiner",
+				zap.String("client_id", c.ID),
+				zap.Int("items", len(awarenessMap)))
 
-        // 2. 逐条发送，带锁保护
-        sentCount := 0
-        for clientID, data := range awarenessMap {
-            c.sendMu.Lock()
-            // 🛑 核心防御：检查通道是否已被 unregisterClient 关闭
-            if c.sendClosed {
-                c.sendMu.Unlock()
-                h.logger.Warn("Sync aborted: client channel closed while sending", 
-                    zap.String("client_id", c.ID),
-                    zap.Uint64("target_yjs_id", clientID))
-                return // 直接退出协程，不发了
-            }
+			// 2. 逐条发送，带锁保护
+			sentCount := 0
+			for clientID, data := range awarenessMap {
+				c.sendMu.Lock()
+				// 🛑 核心防御：检查通道是否已被 unregisterClient 关闭
+				if c.sendClosed {
+					c.sendMu.Unlock()
+					h.logger.Warn("Sync aborted: client channel closed while sending",
+						zap.String("client_id", c.ID),
+						zap.Uint64("target_yjs_id", clientID))
+					return // 直接退出协程，不发了
+				}
 
-            select {
-            case c.send <- data:
-                sentCount++
-            default:
-                // 缓冲区满了（通常是因为网络太卡），记录一条警告
-                h.logger.Warn("Sync item skipped: client send buffer full", 
-                    zap.String("client_id", c.ID),
-                    zap.Uint64("target_yjs_id", clientID))
-            }
-            c.sendMu.Unlock()
-        }
+				select {
+				case c.send <- data:
+					sentCount++
+				default:
+					// 缓冲区满了（通常是因为网络太卡），记录一条警告
+					h.logger.Warn("Sync item skipped: client send buffer full",
+						zap.String("client_id", c.ID),
+						zap.Uint64("target_yjs_id", clientID))
+				}
+				c.sendMu.Unlock()
+			}
 
-        h.logger.Info("State sync completed successfully", 
-            zap.String("client_id", c.ID), 
-            zap.Int("delivered", sentCount))
-    }(client)
-}
+			h.logger.Info("State sync completed successfully",
+				zap.String("client_id", c.ID),
+				zap.Int("delivered", sentCount))
+		}(client)
+	}
 }
 func (h *Hub) unregisterClient(client *Client) {
 	h.mu.Lock()
@@ -228,9 +350,9 @@ func (h *Hub) unregisterClient(client *Client) {
 			// 遍历该客户端在本机观察到的所有 Yjs ID
 			for clientID := range client.observedYjsIDs {
 				err := h.messagebus.DeleteAwareness(ctx, client.roomID, clientID)
-                h.logger.Info("DEBUG: IDs to cleanup", 
-                zap.String("client_id", client.ID), 
-                zap.Any("ids", client.observedYjsIDs))
+				h.logger.Info("DEBUG: IDs to cleanup",
+					zap.String("client_id", client.ID),
+					zap.Any("ids", client.observedYjsIDs))
 				if err != nil {
 					h.logger.Warn("Failed to delete awareness from Redis",
 						zap.Uint64("yjs_id", clientID),
@@ -347,19 +469,16 @@ func (h *Hub) broadcastMessage(message *Message) {
 	h.broadcastToLocalClients(room, message.Data, message.sender)
 
 	// 只有本地客户端发出的消息 (sender != nil) 才推送到 Redis
+	// P0 fix: send to bounded worker pool instead of spawning unbounded goroutines
 	if message.sender != nil && !h.fallbackMode && h.messagebus != nil {
-		go func() { // 建议异步 Publish，不阻塞 Hub 的主循环
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-
-			err := h.messagebus.Publish(ctx, message.RoomID, message.Data)
-			if err != nil {
-				h.logger.Error("MessageBus publish failed",
-					zap.String("room_id", message.RoomID),
-					zap.Error(err),
-				)
-			}
-		}()
+		select {
+		case h.publishQueue <- message:
+			// Successfully queued for async publish by worker pool
+		default:
+			// Queue full — drop to protect the system (same pattern as broadcastToLocalClients)
+			h.logger.Warn("Publish queue full, dropping Redis publish",
+				zap.String("room_id", message.RoomID))
+		}
 	}
 }
 
@@ -379,7 +498,6 @@ func (h *Hub) broadcastToLocalClients(room *Room, data []byte, sender *Client) {
 				client.failureMu.Unlock()
 
 			default:
-
 				client.handleSendFailure()
 			}
 		}
@@ -559,18 +677,23 @@ func (c *Client) ReadPump() {
 				c.idsMu.Unlock()
 
 				// Cache awareness in Redis for cross-server sync
+				// Use a bounded worker pool to avoid blocking ReadPump on Redis I/O.
 				if !c.hub.fallbackMode && c.hub.messagebus != nil {
-					go func(cm map[uint64]uint64, msg []byte) {
-						ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-						defer cancel()
-						for clientID := range cm {
-							if err := c.hub.messagebus.SetAwareness(ctx, c.roomID, clientID, msg); err != nil {
-								c.hub.logger.Warn("Failed to cache awareness in Redis",
-									zap.Uint64("yjs_id", clientID),
-									zap.Error(err))
-							}
-						}
-					}(clockMap, message)
+					clientIDs := make([]uint64, 0, len(clockMap))
+					for clientID := range clockMap {
+						clientIDs = append(clientIDs, clientID)
+					}
+					select {
+					case c.hub.awarenessQueue <- awarenessItem{
+						roomID:    c.roomID,
+						clientIDs: clientIDs,
+						data:      message,
+					}:
+					default:
+						c.hub.logger.Warn("Awareness queue full, dropping update",
+							zap.String("room_id", c.roomID),
+							zap.Int("clients", len(clientIDs)))
+					}
 				}
 			}
 		}
@@ -626,6 +749,26 @@ func (c *Client) WritePump() {
 					zap.String("client_id", c.ID),
 					zap.Error(err))
 				return
+			}
+
+			// P2 fix: write coalescing — drain all queued messages in a tight loop
+			for {
+				select {
+				case extra, ok := <-c.send:
+					if !ok {
+						c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+						return
+					}
+					c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+					if err := c.Conn.WriteMessage(websocket.BinaryMessage, extra); err != nil {
+						return
+					}
+				default:
+					break
+				}
+				if len(c.send) == 0 {
+					break
+				}
 			}
 
 		case <-ticker.C:

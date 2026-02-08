@@ -3,12 +3,16 @@ package messagebus
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"log"
 	"strconv"
 	"sync"
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
+	goredislogging "github.com/redis/go-redis/v9/logging"
 	"go.uber.org/zap"
 )
 
@@ -33,6 +37,14 @@ type subscription struct {
 
 // NewRedisMessageBus creates a new Redis-backed message bus
 func NewRedisMessageBus(redisURL string, serverID string, logger *zap.Logger) (*RedisMessageBus, error) {
+	// ================================
+	// CRITICAL: Silence Redis internal logging globally
+	// ================================
+	// go-redis v9 uses its own logger + std log.
+	// Disable go-redis logger and discard std log to remove lock contention.
+	goredislogging.Disable()
+	log.SetOutput(io.Discard)
+
 	opts, err := goredis.ParseURL(redisURL)
 	if err != nil {
 		logger.Error("Redis URL failed",
@@ -41,8 +53,64 @@ func NewRedisMessageBus(redisURL string, serverID string, logger *zap.Logger) (*
 		)
 		return nil, err
 	}
+
+	// ================================
+	// CRITICAL FIX: Prevent Redis connection churn to reduce internal logging
+	// ================================
+	// Redis client uses Go's standard log package for connection pool events.
+	// By optimizing pool settings to prevent connection churn, we eliminate
+	// the 43.26s mutex contention (99.50% of total delay) caused by
+	// log.(*Logger).output mutex in connection dial operations.
+
+	// ================================
+	// Connection Pool Configuration (tuned for worker pool architecture)
+	// ================================
+	// With 50 publish workers + 10 PubSub subscriptions + awareness ops,
+	// we need ~100 concurrent connections max, not 2000.
+	// Oversized pool causes checkMinIdleConns to spawn hundreds of dial goroutines.
+	opts.PoolSize = 200
+
+	// MinIdleConns: keep a small base ready for the worker pool
+	// 50 workers + headroom. Too high = hundreds of maintenance goroutines dialing.
+	opts.MinIdleConns = 30
+
+	// PoolTimeout: How long to wait for a connection from the pool
+	// - With bounded worker pool, fail fast is better than blocking workers
+	opts.PoolTimeout = 5 * time.Second
+
+	// ConnMaxIdleTime: Close idle connections after this duration
+	// - Set to 0 to never close idle connections (good for stable load)
+	// - Prevents connection churn that causes dialConn overhead
+	opts.ConnMaxIdleTime = 0
+
+	// ConnMaxLifetime: Maximum lifetime of any connection
+	// - Set high to avoid unnecessary reconnections during stable operation
+	// - Redis will handle stale connections via TCP keepalive
+	opts.ConnMaxLifetime = 1 * time.Hour
+
 	client := goredis.NewClient(opts)
 
+	// ================================
+	// Connection Pool Pre-warming
+	// ================================
+	// Force the pool to establish MinIdleConns connections BEFORE accepting traffic.
+	// This prevents the "thundering herd" problem where all 1000 users dial simultaneously.
+	logger.Info("Pre-warming Redis connection pool...", zap.Int("target_conns", opts.MinIdleConns))
+
+	warmupCtx, warmupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer warmupCancel()
+
+	var wg sync.WaitGroup
+	for i := 0; i < opts.MinIdleConns; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = client.Ping(warmupCtx).Err() // Ignore errors, best-effort warmup
+		}()
+	}
+	wg.Wait() // Block until warmup completes
+
+	logger.Info("Connection pool pre-warming completed")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
@@ -103,59 +171,112 @@ func (r *RedisMessageBus) Subscribe(ctx context.Context, roomID string) (<-chan 
 		r.logger.Debug("returning existing subscription", zap.String("roomID", roomID))
 		return sub.channel, nil
 	}
-
-	// Subscribe to Redis channel
-	channel := fmt.Sprintf("room:%s:messages", roomID)
-	pubsub := r.client.Subscribe(ctx, channel)
-
-	if _, err := pubsub.Receive(ctx); err != nil {
-		pubsub.Close()
-		return nil, fmt.Errorf("failed to verify subscription: %w", err)
-	}
+	r.logger.Info("Creating new Redis subscription",
+		zap.String("roomID", roomID),
+		zap.Int("current_map_size", len(r.subscriptions)),
+	)
 
 	subCtx, cancel := context.WithCancel(context.Background())
 	msgChan := make(chan []byte, 256)
 	sub := &subscription{
-		pubsub:  pubsub,
 		channel: msgChan,
 		cancel:  cancel,
 	}
 	r.subscriptions[roomID] = sub
 
-	go r.forwardMessages(subCtx, roomID, sub.pubsub, msgChan)
+	go r.readLoop(subCtx, roomID, sub, msgChan)
 
 	r.logger.Info("successfully subscribed to room",
 		zap.String("roomID", roomID),
-		zap.String("channel", channel),
 	)
 	return msgChan, nil
 }
 
-// forwardMessages receives from Redis PubSub and forwards to local channel
-func (r *RedisMessageBus) forwardMessages(ctx context.Context, roomID string, pubsub *goredis.PubSub, msgChan chan []byte) {
+// readLoop uses ReceiveTimeout to avoid the go-redis channel helper and its health-check goroutine.
+func (r *RedisMessageBus) readLoop(ctx context.Context, roomID string, sub *subscription, msgChan chan []byte) {
 	defer func() {
 		close(msgChan)
 		r.logger.Info("forwarder stopped", zap.String("roomID", roomID))
 	}()
 
-	//Get the Redis channel from pubsub
-	ch := pubsub.Channel()
+	channel := fmt.Sprintf("room:%s:messages", roomID)
+	backoff := 200 * time.Millisecond
+	maxBackoff := 5 * time.Second
 
 	for {
-		select {
-		case <-ctx.Done():
-			r.logger.Info("stopping the channel due to context cancellation", zap.String("roomID", roomID))
+		if ctx.Err() != nil {
+			r.logger.Info("stopping read loop due to context", zap.String("roomID", roomID))
 			return
+		}
 
-		case msg, ok := <-ch:
-			// Check if channel is closed (!ok)
-			if !ok {
-				r.logger.Warn("redis pubsub channel closed unexpectedly", zap.String("roomID", roomID))
+		pubsub := r.client.Subscribe(ctx, channel)
+		if _, err := pubsub.Receive(ctx); err != nil {
+			pubsub.Close()
+			if ctx.Err() != nil {
 				return
 			}
+			time.Sleep(backoff)
+			if backoff < maxBackoff {
+				backoff *= 2
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+			}
+			continue
+		}
 
-			// Parse envelope: serverID + separator + payload
-			raw := []byte(msg.Payload)
+		// attach latest pubsub for Unsubscribe to close
+		r.subMu.Lock()
+		if cur, ok := r.subscriptions[roomID]; ok && cur == sub {
+			sub.pubsub = pubsub
+		} else {
+			r.subMu.Unlock()
+			pubsub.Close()
+			return
+		}
+		r.subMu.Unlock()
+
+		backoff = 200 * time.Millisecond
+		if err := r.receiveOnce(ctx, roomID, pubsub, msgChan); err != nil {
+			pubsub.Close()
+			if ctx.Err() != nil {
+				return
+			}
+			time.Sleep(backoff)
+			if backoff < maxBackoff {
+				backoff *= 2
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+			}
+		}
+	}
+}
+
+func (r *RedisMessageBus) receiveOnce(ctx context.Context, roomID string, pubsub *goredis.PubSub, msgChan chan []byte) error {
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		msg, err := pubsub.ReceiveTimeout(ctx, 5*time.Second)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				return err
+			}
+			if errors.Is(err, goredis.Nil) {
+				continue
+			}
+			r.logger.Warn("pubsub receive error, closing subscription",
+				zap.String("roomID", roomID),
+				zap.Error(err),
+			)
+			return err
+		}
+
+		switch m := msg.(type) {
+		case *goredis.Message:
+			raw := []byte(m.Payload)
 			sepIdx := bytes.Index(raw, envelopeSeparator)
 			if sepIdx == -1 {
 				r.logger.Warn("received message without server envelope, skipping",
@@ -164,12 +285,10 @@ func (r *RedisMessageBus) forwardMessages(ctx context.Context, roomID string, pu
 			}
 
 			senderID := string(raw[:sepIdx])
-			payload := raw[sepIdx+len(envelopeSeparator):]
-
-			// Skip messages published by this same server (prevent echo)
 			if senderID == r.serverID {
 				continue
 			}
+			payload := raw[sepIdx+len(envelopeSeparator):]
 
 			select {
 			case msgChan <- payload:
@@ -181,6 +300,10 @@ func (r *RedisMessageBus) forwardMessages(ctx context.Context, roomID string, pu
 				r.logger.Warn("message dropped: consumer too slow",
 					zap.String("roomID", roomID))
 			}
+		case *goredis.Subscription:
+			continue
+		default:
+			continue
 		}
 	}
 }
@@ -188,26 +311,28 @@ func (r *RedisMessageBus) forwardMessages(ctx context.Context, roomID string, pu
 // Unsubscribe stops listening to a room
 func (r *RedisMessageBus) Unsubscribe(ctx context.Context, roomID string) error {
 	r.subMu.Lock()
-	defer r.subMu.Unlock()
-
 	// Check if subscription exists
 	sub, ok := r.subscriptions[roomID]
 	if !ok {
+		r.subMu.Unlock()
 		r.logger.Debug("unsubscribe ignored: room not found", zap.String("roomID", roomID))
 		return nil
 	}
-	// Cancel the context (stops forwardMessages goroutine)
+	delete(r.subscriptions, roomID)
+	r.subMu.Unlock()
+
+	// Cancel the context (stops readLoop goroutine)
 	sub.cancel()
 
-	// Close the Redis pubsub connection
-	if err := sub.pubsub.Close(); err != nil {
-		r.logger.Error("failed to close redis pubsub",
-			zap.String("roomID", roomID),
-			zap.Error(err),
-		)
+	// Close the Redis pubsub connection (outside lock to avoid blocking others)
+	if sub.pubsub != nil {
+		if err := sub.pubsub.Close(); err != nil {
+			r.logger.Error("failed to close redis pubsub",
+				zap.String("roomID", roomID),
+				zap.Error(err),
+			)
+		}
 	}
-	// Remove from subscriptions map
-	delete(r.subscriptions, roomID)
 	r.logger.Info("successfully unsubscribed", zap.String("roomID", roomID))
 
 	return nil
@@ -354,28 +479,28 @@ func (r *RedisMessageBus) StartHealthMonitoring(ctx context.Context, interval ti
 
 func (r *RedisMessageBus) Close() error {
 	r.subMu.Lock()
-	defer r.subMu.Unlock()
-
 	r.logger.Info("gracefully shutting down message bus", zap.Int("active_subs", len(r.subscriptions)))
+	subs := r.subscriptions
+	r.subscriptions = make(map[string]*subscription)
+	r.subMu.Unlock()
 
 	// 1. 关闭所有正在运行的订阅
-	for roomID, sub := range r.subscriptions {
-		// 停止对应的 forwardMessages 协程
+	for roomID, sub := range subs {
+		// 停止对应的 readLoop 协程
 		sub.cancel()
 
 		// 关闭物理连接
-		if err := sub.pubsub.Close(); err != nil {
-			r.logger.Error("failed to close pubsub connection",
-				zap.String("roomID", roomID),
-				zap.Error(err),
-			)
+		if sub.pubsub != nil {
+			if err := sub.pubsub.Close(); err != nil {
+				r.logger.Error("failed to close pubsub connection",
+					zap.String("roomID", roomID),
+					zap.Error(err),
+				)
+			}
 		}
 	}
 
-	// 2. 清空 Map，释放引用以便 GC 回收
-	r.subscriptions = make(map[string]*subscription)
-
-	// 3. 关闭主 Redis 客户端连接池
+	// 2. 关闭主 Redis 客户端连接池
 	if err := r.client.Close(); err != nil {
 		r.logger.Error("failed to close redis client", zap.Error(err))
 		return err
@@ -384,9 +509,10 @@ func (r *RedisMessageBus) Close() error {
 	r.logger.Info("Redis message bus closed successfully")
 	return nil
 }
+
 // ClearAllAwareness 彻底删除该房间的感知数据 Hash
 func (r *RedisMessageBus) ClearAllAwareness(ctx context.Context, roomID string) error {
-    key := fmt.Sprintf("room:%s:awareness", roomID)
-    // 直接使用 Del 命令删除整个 Key
-    return r.client.Del(ctx, key).Err()
+	key := fmt.Sprintf("room:%s:awareness", roomID)
+	// 直接使用 Del 命令删除整个 Key
+	return r.client.Del(ctx, key).Err()
 }
