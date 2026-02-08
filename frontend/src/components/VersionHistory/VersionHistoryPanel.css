@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(15, 23, 42, 0.35);
   z-index: 1000;
   animation: fadeIn 0.2s ease;
 }
@@ -27,13 +27,20 @@
   position: fixed;
   right: 0;
   top: 0;
-  width: 400px;
+  width: 420px;
   height: 100vh;
-  background: white;
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+  background: hsl(var(--surface));
+  border-left: 1px solid hsl(var(--border));
+  box-shadow: -10px 0 30px rgba(15, 23, 42, 0.15);
   display: flex;
   flex-direction: column;
   animation: slideIn 0.2s ease;
+}
+
+@media (max-width: 640px) {
+  .version-panel {
+    width: 100%;
+  }
 }
 
 .version-panel-header {
@@ -41,21 +48,21 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .version-panel-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1a202c;
+  color: hsl(var(--text-primary));
 }
 
 .close-button {
   background: none;
   border: none;
-  font-size: 28px;
-  color: #718096;
+  font-size: 24px;
+  color: hsl(var(--text-muted));
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -63,35 +70,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.2s ease;
 }
 
 .close-button:hover {
-  background: #f7fafc;
-  color: #2d3748;
+  background: hsl(var(--surface-muted));
+  color: hsl(var(--text-primary));
 }
 
 .version-panel-actions {
   padding: 16px 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .create-version-btn {
   width: 100%;
   padding: 10px 16px;
-  background: #667eea;
+  background: hsl(var(--primary));
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .create-version-btn:hover {
-  background: #5568d3;
+  background: hsl(var(--primary) / 0.9);
+  box-shadow: var(--shadow-md);
 }
 
 .version-panel-content {
@@ -104,7 +113,14 @@
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #718096;
+  color: hsl(var(--text-muted));
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .empty-state p {
@@ -114,20 +130,20 @@
 
 .empty-state small {
   font-size: 13px;
-  color: #a0aec0;
+  color: hsl(var(--text-muted));
 }
 
 .message {
   padding: 12px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   margin-bottom: 16px;
   font-size: 14px;
 }
 
 .message.error {
-  background: #fff5f5;
-  color: #c53030;
-  border: 1px solid #feb2b2;
+  background: #fff1f2;
+  color: #b91c1c;
+  border: 1px solid #fecdd3;
 }
 
 .version-list {
@@ -137,16 +153,17 @@
 }
 
 .version-item {
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  background: hsl(var(--surface));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
   padding: 14px;
   transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .version-item:hover {
-  border-color: #cbd5e0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-color: hsl(var(--primary) / 0.25);
+  box-shadow: var(--shadow-md);
 }
 
 .version-header {
@@ -160,23 +177,23 @@
 .version-number {
   font-weight: 600;
   font-size: 14px;
-  color: #2d3748;
+  color: hsl(var(--text-primary));
 }
 
 .auto-badge {
-  background: #e8f4fd;
-  color: #3182ce;
+  background: hsl(var(--surface-muted));
+  color: hsl(var(--text-secondary));
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
 }
 
 .version-label {
-  color: #667eea;
+  color: hsl(var(--primary));
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .version-meta {
@@ -184,7 +201,7 @@
   align-items: center;
   justify-content: space-between;
   font-size: 13px;
-  color: #718096;
+  color: hsl(var(--text-muted));
   margin-bottom: 8px;
 }
 
@@ -199,21 +216,22 @@
   height: 20px;
   border-radius: 50%;
   object-fit: cover;
+  border: 1px solid hsl(var(--border));
 }
 
 .version-time {
-  color: #a0aec0;
+  color: hsl(var(--text-muted));
 }
 
 .version-preview {
   font-size: 13px;
-  color: #4a5568;
+  color: hsl(var(--text-secondary));
   line-height: 1.5;
   margin-bottom: 12px;
   padding: 8px;
-  background: white;
-  border-radius: 4px;
-  border: 1px solid #edf2f7;
+  background: hsl(var(--surface-muted));
+  border-radius: var(--radius-sm);
+  border: 1px solid hsl(var(--border));
   max-height: 60px;
   overflow: hidden;
 }
@@ -221,18 +239,18 @@
 .restore-btn {
   width: 100%;
   padding: 8px 12px;
-  background: white;
-  color: #667eea;
-  border: 1px solid #667eea;
-  border-radius: 6px;
+  background: hsl(var(--surface));
+  color: hsl(var(--primary));
+  border: 1px solid hsl(var(--primary));
+  border-radius: var(--radius-sm);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .restore-btn:hover:not(:disabled) {
-  background: #667eea;
+  background: hsl(var(--primary));
   color: white;
 }
 
@@ -247,21 +265,21 @@
   justify-content: space-between;
   padding: 16px 0;
   margin-top: 16px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid hsl(var(--border));
 }
 
 .pagination button {
   padding: 8px 16px;
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  background: hsl(var(--surface-muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .pagination button:hover:not(:disabled) {
-  background: #edf2f7;
+  background: hsl(var(--surface));
 }
 
 .pagination button:disabled {
@@ -271,7 +289,7 @@
 
 .pagination span {
   font-size: 13px;
-  color: #718096;
+  color: hsl(var(--text-muted));
 }
 
 /* Create Version Modal */
@@ -281,7 +299,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -289,39 +307,40 @@
 }
 
 .create-modal {
-  background: white;
-  border-radius: 12px;
+  background: hsl(var(--surface));
+  border-radius: var(--radius-lg);
   padding: 24px;
   width: 90%;
-  max-width: 400px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 420px;
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-lg);
 }
 
 .create-modal h3 {
   margin: 0 0 8px 0;
   font-size: 18px;
-  color: #1a202c;
+  color: hsl(var(--text-primary));
 }
 
 .create-modal p {
   margin: 0 0 20px 0;
   font-size: 14px;
-  color: #718096;
+  color: hsl(var(--text-secondary));
 }
 
 .create-modal label {
   display: block;
   font-size: 14px;
-  font-weight: 500;
-  color: #2d3748;
+  font-weight: 600;
+  color: hsl(var(--text-primary));
   margin-bottom: 8px;
 }
 
 .create-modal input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
   font-size: 14px;
   margin-bottom: 20px;
   box-sizing: border-box;
@@ -329,8 +348,8 @@
 
 .create-modal input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: hsl(var(--primary));
+  box-shadow: var(--focus-ring);
 }
 
 .modal-buttons {
@@ -341,31 +360,31 @@
 
 .modal-buttons button {
   padding: 10px 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .modal-buttons button:not(.primary) {
-  background: #f7fafc;
-  color: #4a5568;
-  border: 1px solid #e2e8f0;
+  background: hsl(var(--surface-muted));
+  color: hsl(var(--text-secondary));
+  border: 1px solid hsl(var(--border));
 }
 
 .modal-buttons button:not(.primary):hover {
-  background: #edf2f7;
+  background: hsl(var(--surface));
 }
 
 .modal-buttons button.primary {
-  background: #667eea;
+  background: hsl(var(--primary));
   color: white;
   border: none;
 }
 
 .modal-buttons button.primary:hover:not(:disabled) {
-  background: #5568d3;
+  background: hsl(var(--primary) / 0.9);
 }
 
 .modal-buttons button:disabled {

@@ -4,12 +4,13 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   animation: fadeIn 0.2s ease;
+  backdrop-filter: blur(2px);
 }
 
 @keyframes fadeIn {
@@ -18,11 +19,12 @@
 }
 
 .modal-content {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: hsl(var(--surface));
+  border-radius: var(--radius-lg);
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-lg);
   width: 90%;
-  max-width: 600px;
+  max-width: 640px;
   max-height: 80vh;
   overflow: hidden;
   display: flex;
@@ -46,20 +48,54 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--surface));
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 20px;
-  color: #1a202c;
+  font-size: 18px;
+  color: hsl(var(--text-primary));
+}
+
+.role-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin: 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.role-banner.owner {
+  background: #ecfdf5;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.role-banner.editor {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+}
+
+.role-banner.viewer {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.role-icon {
+  font-size: 16px;
 }
 
 .close-button {
-  background: none;
+  background: transparent;
   border: none;
-  font-size: 28px;
-  color: #718096;
+  font-size: 24px;
+  color: hsl(var(--text-muted));
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -67,40 +103,43 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.2s ease;
 }
 
 .close-button:hover {
-  background: #f7fafc;
-  color: #2d3748;
+  background: hsl(var(--surface-muted));
+  color: hsl(var(--text-primary));
 }
 
 .tabs {
-  display: flex;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 0 24px;
+  display: inline-flex;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--surface));
 }
 
 .tab {
-  padding: 12px 20px;
-  background: none;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  color: #718096;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--text-muted));
   cursor: pointer;
-  border-bottom: 2px solid transparent;
   transition: all 0.2s ease;
 }
 
 .tab:hover {
-  color: #2d3748;
+  color: hsl(var(--text-primary));
 }
 
 .tab.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: white;
+  background: hsl(var(--primary));
+  border-color: transparent;
 }
 
 .tab-content {
@@ -110,72 +149,78 @@
 
 .message {
   padding: 12px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   margin-bottom: 16px;
   font-size: 14px;
 }
 
 .message.error {
-  background: #fff5f5;
-  color: #c53030;
-  border: 1px solid #feb2b2;
+  background: #fff1f2;
+  color: #b91c1c;
+  border: 1px solid #fecdd3;
 }
 
 .message.success {
-  background: #f0fff4;
-  color: #22543d;
-  border: 1px solid #9ae6b4;
+  background: #ecfdf5;
+  color: #166534;
+  border: 1px solid #bbf7d0;
 }
 
 .share-form {
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
 .share-input {
   flex: 1;
+  min-width: 220px;
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
   font-size: 14px;
+  background: hsl(var(--surface));
 }
 
 .share-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: hsl(var(--primary));
+  box-shadow: var(--focus-ring);
 }
 
 .share-select {
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  background: white;
+  background: hsl(var(--surface));
   cursor: pointer;
 }
 
 .share-select:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: hsl(var(--primary));
+  box-shadow: var(--focus-ring);
 }
 
 .share-button {
-  padding: 10px 20px;
-  background: #667eea;
+  padding: 10px 18px;
+  background: hsl(var(--primary));
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  box-shadow: var(--shadow-sm);
 }
 
 .share-button:hover:not(:disabled) {
-  background: #5568d3;
+  background: hsl(var(--primary) / 0.9);
+  box-shadow: var(--shadow-md);
 }
 
 .share-button:disabled {
@@ -186,15 +231,19 @@
 .shares-list h3 {
   font-size: 14px;
   font-weight: 600;
-  color: #2d3748;
+  color: hsl(var(--text-primary));
   margin: 0 0 12px 0;
 }
 
 .empty-state {
-  padding: 32px;
+  padding: 28px;
   text-align: center;
-  color: #718096;
+  color: hsl(var(--text-muted));
   font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .share-item {
@@ -202,9 +251,10 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
   margin-bottom: 8px;
+  background: hsl(var(--surface));
 }
 
 .share-user {
@@ -214,10 +264,11 @@
 }
 
 .share-avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
+  border: 1px solid hsl(var(--border));
 }
 
 .share-info {
@@ -228,13 +279,13 @@
 
 .share-name {
   font-size: 14px;
-  font-weight: 500;
-  color: #2d3748;
+  font-weight: 600;
+  color: hsl(var(--text-primary));
 }
 
 .share-email {
   font-size: 13px;
-  color: #718096;
+  color: hsl(var(--text-muted));
 }
 
 .share-actions {
@@ -244,28 +295,28 @@
 }
 
 .permission-badge {
-  padding: 4px 12px;
-  background: #edf2f7;
-  color: #4a5568;
-  border-radius: 12px;
+  padding: 4px 10px;
+  background: hsl(var(--surface-muted));
+  color: hsl(var(--text-secondary));
+  border-radius: 999px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: capitalize;
 }
 
 .remove-button {
   padding: 6px 12px;
   background: white;
-  color: #e53e3e;
-  border: 1px solid #feb2b2;
-  border-radius: 6px;
+  color: #b91c1c;
+  border: 1px solid #fecdd3;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .remove-button:hover:not(:disabled) {
-  background: #fff5f5;
+  background: #fff1f2;
 }
 
 .remove-button:disabled {
@@ -278,7 +329,7 @@
 }
 
 .link-creation p {
-  color: #4a5568;
+  color: hsl(var(--text-secondary));
   margin-bottom: 20px;
 }
 
@@ -287,6 +338,7 @@
   gap: 12px;
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .link-display {
@@ -296,40 +348,42 @@
 }
 
 .link-display > p {
-  color: #4a5568;
+  color: hsl(var(--text-secondary));
   margin: 0;
 }
 
 .link-box {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .link-input {
   flex: 1;
+  min-width: 240px;
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  background: #f7fafc;
-  color: #2d3748;
+  background: hsl(var(--surface-muted));
+  color: hsl(var(--text-primary));
 }
 
 .copy-button {
-  padding: 10px 20px;
-  background: #48bb78;
+  padding: 10px 18px;
+  background: hsl(var(--secondary));
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 .copy-button:hover {
-  background: #38a169;
+  background: hsl(var(--secondary) / 0.9);
 }
 
 .link-meta {
@@ -340,23 +394,23 @@
 
 .link-date {
   font-size: 13px;
-  color: #718096;
+  color: hsl(var(--text-muted));
 }
 
 .revoke-button {
   padding: 10px 20px;
   background: white;
-  color: #e53e3e;
-  border: 1px solid #feb2b2;
-  border-radius: 6px;
+  color: #b91c1c;
+  border: 1px solid #fecdd3;
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .revoke-button:hover:not(:disabled) {
-  background: #fff5f5;
+  background: #fff1f2;
 }
 
 .revoke-button:disabled {

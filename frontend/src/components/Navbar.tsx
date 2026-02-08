@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import PixelIcon from '@/components/PixelIcon/PixelIcon';
 import { LogOut } from 'lucide-react';
 
 function Navbar() {
@@ -9,28 +10,33 @@ function Navbar() {
 
   return (
     <nav className="
-      bg-pixel-white
-      border-b-[3px]
-      border-pixel-outline
-      shadow-pixel-sm
+      bg-surface
+      border-b
+      border-border
+      shadow-soft
       sticky
       top-0
       z-50
+      backdrop-blur
     ">
       <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
         {/* Brand */}
         <a
           href="/"
           className="
-            font-pixel
-            text-xl
-            text-pixel-purple-bright
-            hover:text-pixel-cyan-bright
+            font-display
+            text-lg
+            text-text-primary
+            hover:text-brand
             transition-colors
             duration-200
+            flex
+            items-center
+            gap-2
           "
         >
-          Realtime Collab
+          <PixelIcon name="gem" size={18} color="hsl(var(--brand-teal))" />
+          DocNest
         </a>
 
         {/* User Section */}
@@ -40,15 +46,17 @@ function Navbar() {
               src={user.avatar_url}
               alt={user.name}
               className="
-                w-10
-                h-10
-                border-[3px]
-                border-pixel-outline
-                shadow-pixel-sm
+                w-9
+                h-9
+                rounded-full
+                border
+                border-border
+                shadow-soft
+                object-cover
               "
             />
           )}
-          <span className="font-sans font-medium text-pixel-text-primary hidden sm:inline">
+          <span className="font-sans font-medium text-text-primary hidden sm:inline">
             {user.name}
           </span>
           <Button
@@ -56,14 +64,13 @@ function Navbar() {
             variant="outline"
             size="sm"
             className="
-              border-[3px]
-              border-pixel-outline
-              shadow-pixel-sm
-              hover:shadow-pixel-hover
+              border
+              border-border
+              shadow-soft
+              hover:shadow-card
               hover:-translate-y-0.5
-              hover:-translate-x-0.5
               transition-all
-              duration-75
+              duration-150
               font-sans
             "
           >

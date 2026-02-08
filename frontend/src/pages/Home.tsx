@@ -6,8 +6,8 @@ import { documentsApi } from '@/api/document';
 import Navbar from '@/components/Navbar';
 import { DocumentCard } from '@/components/Home/DocumentCard';
 import { CreateButton } from '@/components/Home/CreateButton';
-import FloatingGem from '@/components/PixelSprites/FloatingGem';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import PixelIcon from '@/components/PixelIcon/PixelIcon';
 
 const Home = () => {
   const { user } = useAuth();
@@ -64,8 +64,8 @@ const Home = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-pixel-bg-light">
-        <div className="font-pixel text-pixel-purple-bright animate-pixel-bounce">
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-brand text-base font-medium">
           Loading...
         </div>
       </div>
@@ -75,15 +75,11 @@ const Home = () => {
   return (
     <>
       <Navbar />
-      <div className="max-w-7xl mx-auto px-8 py-12 relative min-h-screen bg-pixel-bg-light">
-        {/* Decorative floating gems */}
-        <FloatingGem position={{ top: '20px', right: '40px' }} delay={0} size={40} />
-        <FloatingGem position={{ top: '60px', left: '60px' }} delay={1.5} size={32} />
-        <FloatingGem position={{ bottom: '100px', right: '100px' }} delay={3} size={36} />
+      <div className="max-w-7xl mx-auto px-8 py-12 relative min-h-screen bg-background">
 
         {/* Page Header */}
         <div className="mb-12">
-          <h1 className="font-pixel text-4xl text-pixel-purple-bright mb-6 tracking-wide">
+          <h1 className="font-display text-3xl text-text-primary mb-4">
             My Workspace
           </h1>
 
@@ -109,10 +105,10 @@ const Home = () => {
         {/* Tabbed Interface */}
         <Tabs defaultValue="owned" className="w-full">
           <TabsList className="
-            bg-pixel-panel
-            border-[3px]
-            border-pixel-outline
-            shadow-pixel-sm
+            bg-surface-muted
+            border
+            border-border
+            shadow-soft
             p-1
             mb-8
           ">
@@ -121,9 +117,9 @@ const Home = () => {
               className="
                 font-sans
                 font-semibold
-                data-[state=active]:bg-pixel-cyan-bright
-                data-[state=active]:text-white
-                data-[state=active]:shadow-pixel-sm
+                data-[state=active]:bg-surface
+                data-[state=active]:text-text-primary
+                data-[state=active]:shadow-soft
                 transition-all
                 duration-100
               "
@@ -135,9 +131,9 @@ const Home = () => {
               className="
                 font-sans
                 font-semibold
-                data-[state=active]:bg-pixel-cyan-bright
-                data-[state=active]:text-white
-                data-[state=active]:shadow-pixel-sm
+                data-[state=active]:bg-surface
+                data-[state=active]:text-text-primary
+                data-[state=active]:shadow-soft
                 transition-all
                 duration-100
               "
@@ -150,9 +146,10 @@ const Home = () => {
           <TabsContent value="owned">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {ownedDocuments.length === 0 ? (
-                <p className="col-span-full text-center text-pixel-text-muted font-sans py-12">
-                  No documents yet. Create one to get started!
-                </p>
+                <div className="col-span-full flex flex-col items-center gap-3 text-text-muted font-sans py-12">
+                  <PixelIcon name="gem" size={20} color="hsl(var(--brand-teal))" />
+                  <p>No documents yet. Create one to get started!</p>
+                </div>
               ) : (
                 ownedDocuments.map((doc) => (
                   <DocumentCard
@@ -170,9 +167,10 @@ const Home = () => {
           <TabsContent value="shared">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {sharedDocuments.length === 0 ? (
-                <p className="col-span-full text-center text-pixel-text-muted font-sans py-12">
-                  No shared documents yet.
-                </p>
+                <div className="col-span-full flex flex-col items-center gap-3 text-text-muted font-sans py-12">
+                  <PixelIcon name="gem" size={20} color="hsl(var(--brand-teal))" />
+                  <p>No shared documents yet.</p>
+                </div>
               ) : (
                 sharedDocuments.map((doc) => (
                   <DocumentCard

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import type { DocumentType } from '@/api/document';
 import { Card } from '@/components/ui/card';
 import { FileText, KanbanSquare, Trash2 } from 'lucide-react';
+import PixelIcon from '@/components/PixelIcon/PixelIcon';
 import { Button } from '@/components/ui/button';
 
 interface DocumentCardProps {
@@ -24,15 +25,14 @@ export function DocumentCard({ doc, onDelete, isShared }: DocumentCardProps) {
     <Card className="
       group
       relative
-      bg-pixel-white
-      border-[3px]
-      border-pixel-outline
-      shadow-pixel-md
-      hover:shadow-pixel-lg
+      bg-surface
+      border
+      border-border
+      shadow-card
+      hover:shadow-float
       hover:-translate-y-0.5
-      hover:-translate-x-0.5
       transition-all
-      duration-100
+      duration-150
       p-6
       flex
       flex-col
@@ -42,42 +42,32 @@ export function DocumentCard({ doc, onDelete, isShared }: DocumentCardProps) {
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="
-            bg-pixel-cyan-bright
-            p-2
-            border-[2px]
-            border-pixel-outline
-            shadow-pixel-sm
+            bg-brand-teal
+            p-2.5
+            rounded-md
+            shadow-soft
           ">
-            <Icon className="w-6 h-6 text-white" />
+            <Icon className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="font-pixel text-sm text-pixel-text-primary mb-1">
+            <h3 className="font-display text-base text-text-primary mb-1">
               {doc.name}
             </h3>
-            <span className="font-sans text-xs text-pixel-text-muted">
+            <span className="font-sans text-xs text-text-muted">
               {typeLabel}
             </span>
           </div>
         </div>
         {isShared && (
-          <span className="
-            bg-pixel-pink-vibrant
-            text-white
-            font-sans
-            text-xs
-            font-semibold
-            px-2
-            py-1
-            border-[2px]
-            border-pixel-outline
-          ">
+          <span className="shared-badge">
+            <PixelIcon name="gem" size={12} color="hsl(var(--brand-teal))" />
             Shared
           </span>
         )}
       </div>
 
       {/* Metadata */}
-      <div className="font-sans text-xs text-pixel-text-muted">
+      <div className="font-sans text-xs text-text-muted">
         Created {new Date(doc.created_at).toLocaleDateString()}
       </div>
 
@@ -87,17 +77,16 @@ export function DocumentCard({ doc, onDelete, isShared }: DocumentCardProps) {
           onClick={handleOpen}
           className="
             flex-1
-            bg-pixel-cyan-bright
-            hover:bg-pixel-purple-bright
+            bg-brand
+            hover:bg-brand-dark
             text-white
-            border-[2px]
-            border-pixel-outline
-            shadow-pixel-sm
-            hover:shadow-pixel-hover
+            border
+            border-border
+            shadow-soft
+            hover:shadow-card
             hover:-translate-y-0.5
-            hover:-translate-x-0.5
             transition-all
-            duration-75
+            duration-150
             font-sans
             font-semibold
           "
@@ -109,15 +98,14 @@ export function DocumentCard({ doc, onDelete, isShared }: DocumentCardProps) {
             onClick={() => onDelete(doc.id)}
             variant="outline"
             className="
-              border-[2px]
-              border-pixel-outline
-              shadow-pixel-sm
-              hover:shadow-pixel-hover
+              border
+              border-border
+              shadow-soft
+              hover:shadow-card
               hover:-translate-y-0.5
-              hover:-translate-x-0.5
               hover:bg-red-50
               transition-all
-              duration-75
+              duration-150
             "
           >
             <Trash2 className="w-4 h-4" />

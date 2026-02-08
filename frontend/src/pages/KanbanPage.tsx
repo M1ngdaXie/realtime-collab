@@ -24,9 +24,6 @@ const KanbanPage = () => {
       <div className="page-header">
         <button onClick={() => navigate("/")}>← Back to Home</button>
         <div className="header-actions">
-          <div className="sync-status">
-            {synced ? "✓ Synced" : "⟳ Syncing..."}
-          </div>
           {!shareToken && (
             <button className="share-btn" onClick={() => setShowShareModal(true)}>
               Share

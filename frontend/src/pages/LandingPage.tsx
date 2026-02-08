@@ -16,42 +16,92 @@ function LandingPage() {
     <div className="landing-page">
       {/* Hero Section */}
       <section className="landing-hero">
-        <FloatingGem position={{ top: '10%', left: '8%' }} delay={0} size={44} />
-        <FloatingGem position={{ top: '15%', right: '12%' }} delay={1.5} size={36} />
-        <FloatingGem position={{ top: '45%', left: '5%' }} delay={2.5} size={28} />
-        <FloatingGem position={{ bottom: '25%', right: '8%' }} delay={3.5} size={40} />
-        <FloatingGem position={{ bottom: '15%', left: '15%' }} delay={4} size={32} />
-        <FloatingGem position={{ top: '60%', right: '20%' }} delay={1} size={24} />
-
-        <div className="hero-content">
-          <div className="hero-logo">
-            <PixelIcon name="gem" size={56} color="var(--pixel-yellow-gold)" />
-            <h1 className="hero-brand">DocNest</h1>
-          </div>
-
-          <h2 className="hero-headline">Create Together. In Real-Time.</h2>
-          <p className="hero-tagline">
-            Collaborative documents and Kanban boards that sync instantly.
-            <br />
-            Work with your team from anywhere, even offline.
-          </p>
-
-          <div className="hero-login-buttons">
-            <button className="landing-login-button google" onClick={handleGoogleLogin}>
-              <GoogleIcon />
-              <span>Sign in with Google</span>
-            </button>
-            <button className="landing-login-button github" onClick={handleGitHubLogin}>
-              <GitHubIcon />
-              <span>Sign in with GitHub</span>
-            </button>
-          </div>
+        <div className="hero-gem hero-gem-one">
+          <FloatingGem position={{ top: '12%', left: '8%' }} delay={0} size={28} />
+        </div>
+        <div className="hero-gem hero-gem-two">
+          <FloatingGem position={{ bottom: '18%', right: '10%' }} delay={1.5} size={24} />
         </div>
 
-        <div className="hero-scroll-hint">
-          <PixelIcon name="back-arrow" size={24} style={{ transform: 'rotate(-90deg)' }} />
+        <div className="hero-grid">
+          <div className="hero-content">
+            <div className="hero-logo">
+              <PixelIcon name="gem" size={28} color="hsl(var(--brand-teal))" />
+              <span className="hero-brand">DocNest</span>
+            </div>
+
+            <h1 className="hero-headline">Create together. In real time.</h1>
+            <p className="hero-tagline">
+              Collaborative documents and Kanban boards that sync instantly.
+              <br />
+              Work with your team from anywhere, even offline.
+            </p>
+
+            <div className="hero-login-buttons">
+              <button className="landing-login-button primary" onClick={handleGoogleLogin}>
+                Get started free
+                <PixelIcon name="gem" size={16} color="white" />
+              </button>
+              <div className="provider-buttons">
+                <button className="landing-login-button provider" onClick={handleGoogleLogin}>
+                  <GoogleIcon />
+                  <span>Continue with Google</span>
+                </button>
+                <button className="landing-login-button provider" onClick={handleGitHubLogin}>
+                  <GitHubIcon />
+                  <span>Continue with GitHub</span>
+                </button>
+              </div>
+              <p className="hero-note">No credit card required.</p>
+            </div>
+          </div>
+
+          <div className="hero-mock">
+            <div className="mock-topbar">
+              <div className="mock-dot" />
+              <div className="mock-dot" />
+              <div className="mock-dot" />
+            </div>
+            <div className="mock-body">
+              <div className="mock-tabs">
+                <span className="mock-tab active">Docs</span>
+                <span className="mock-tab">Boards</span>
+                <span className="mock-tab">History</span>
+              </div>
+              <div className="mock-grid">
+                <div className="mock-card">
+                  <div className="mock-line wide" />
+                  <div className="mock-line" />
+                  <div className="mock-line short" />
+                </div>
+                <div className="mock-card">
+                  <div className="mock-line wide" />
+                  <div className="mock-line" />
+                  <div className="mock-line short" />
+                </div>
+              </div>
+              <div className="mock-rows">
+                <div className="mock-row">
+                  <span className="mock-pill" />
+                  <span className="mock-line" />
+                  <span className="mock-line short" />
+                </div>
+                <div className="mock-row">
+                  <span className="mock-pill" />
+                  <span className="mock-line" />
+                  <span className="mock-line short" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
+
+      <div className="section-divider">
+        <span className="divider-line" />
+        <PixelIcon name="gem" size={16} color="hsl(var(--brand-teal))" />
+        <span className="divider-line" />
+      </div>
 
       {/* Features Section */}
       <section className="landing-features">
@@ -61,42 +111,44 @@ function LandingPage() {
             icon="sync-arrows"
             title="Real-Time Collaboration"
             description="See changes as they happen. Multiple cursors show who's working where."
-            color="var(--pixel-cyan-bright)"
+            color="hsl(var(--brand-teal))"
           />
           <FeatureCard
             icon="document"
             title="Rich Documents"
             description="Create formatted documents with headings, lists, and more."
-            color="var(--pixel-purple-bright)"
+            color="hsl(var(--brand))"
           />
           <FeatureCard
             icon="kanban"
             title="Kanban Boards"
             description="Drag-and-drop task management with real-time updates."
-            color="var(--pixel-orange-warm)"
+            color="hsl(var(--accent))"
           />
           <FeatureCard
             icon="shield"
             title="Offline Support"
             description="Your work syncs automatically when you're back online."
-            color="var(--pixel-green-lime)"
+            color="hsl(var(--secondary))"
           />
         </div>
       </section>
 
+      <div className="section-divider">
+        <span className="divider-line" />
+        <PixelIcon name="gem" size={16} color="hsl(var(--brand-teal))" />
+        <span className="divider-line" />
+      </div>
+
       {/* Footer CTA */}
       <footer className="landing-footer">
-        <FloatingGem position={{ top: '20%', left: '10%' }} delay={0.5} size={28} />
-        <FloatingGem position={{ bottom: '30%', right: '12%' }} delay={2} size={32} />
-
         <div className="footer-content">
           <h3 className="footer-headline">Ready to collaborate?</h3>
-          <p className="footer-tagline">Join thousands of teams creating together.</p>
+          <p className="footer-tagline">Join teams building together in DocNest.</p>
 
           <div className="footer-login-buttons">
-            <button className="landing-login-button google large" onClick={handleGoogleLogin}>
-              <GoogleIcon />
-              <span>Get Started Free</span>
+            <button className="landing-login-button primary large" onClick={handleGoogleLogin}>
+              Get started free
             </button>
           </div>
 

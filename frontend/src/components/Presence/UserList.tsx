@@ -43,45 +43,37 @@ const UserList = ({ awareness }: UserListProps) => {
   }, [awareness]);
 
   return (
-    <div className="
-      bg-pixel-white
-      border-[3px]
-      border-pixel-outline
-      shadow-pixel-md
-      p-4
-    ">
+    <div className="p-2">
       {/* Header with online count */}
       <div className="
         flex
         items-center
         gap-2
-        mb-4
-        pb-3
-        border-b-[2px]
-        border-pixel-outline
+        mb-3
+        pb-2
+        border-b
+        border-border
       ">
         <div className="
-          w-3
-          h-3
-          bg-pixel-green-lime
+          w-2.5
+          h-2.5
+          bg-brand-teal
           animate-pulse
-          border-[2px]
-          border-pixel-outline
+          rounded-full
         " />
-        <h4 className="font-pixel text-xs text-pixel-text-primary">
-          ONLINE
+        <h4 className="font-display text-xs text-text-secondary uppercase tracking-wide">
+          Online
         </h4>
         <span className="
           ml-auto
           font-sans
           text-sm
-          font-bold
-          text-pixel-purple-bright
-          bg-pixel-panel
+          font-semibold
+          text-text-primary
+          bg-surface-muted
           px-2
-          py-1
-          border-[2px]
-          border-pixel-outline
+          py-0.5
+          rounded-full
         ">
           {users.length}
         </span>
@@ -95,7 +87,7 @@ const UserList = ({ awareness }: UserListProps) => {
             py-4
             font-sans
             text-xs
-            text-pixel-text-muted
+            text-text-muted
           ">
             No users online
           </div>
@@ -108,16 +100,7 @@ const UserList = ({ awareness }: UserListProps) => {
                 flex
                 items-center
                 gap-3
-                p-2
-                bg-pixel-panel
-                border-[2px]
-                border-pixel-outline
-                shadow-pixel-sm
-                hover:shadow-pixel-hover
-                hover:-translate-y-0.5
-                hover:-translate-x-0.5
-                transition-all
-                duration-75
+                py-2
               "
             >
               {/* Avatar with online indicator */}
@@ -130,13 +113,14 @@ const UserList = ({ awareness }: UserListProps) => {
                       className="
                         w-10
                         h-10
-                        border-[3px]
-                        border-pixel-outline
-                        shadow-pixel-sm
+                        rounded-full
+                        border
+                        border-border
+                        shadow-soft
                         object-cover
                       "
                       onError={(e) => {
-                        // Fallback to colored square on image error
+                        // Fallback to colored circle on image error
                         e.currentTarget.style.display = 'none';
                         const fallback = e.currentTarget.nextElementSibling as HTMLElement;
                         if (fallback) {
@@ -146,16 +130,15 @@ const UserList = ({ awareness }: UserListProps) => {
                     />
                     {/* Fallback colored square (hidden if avatar loads) */}
                     <div
-                      className="w-10 h-10 border-[3px] border-pixel-outline shadow-pixel-sm items-center justify-center font-pixel text-xs text-white"
-                      style={{ backgroundColor: user.color, display: 'none' }}
+                      className="w-10 h-10 border border-border shadow-soft items-center justify-center font-display text-xs text-text-secondary rounded-full bg-surface-muted"
+                      style={{ display: 'none' }}
                     >
                       {user.name.charAt(0).toUpperCase()}
                     </div>
                   </>
                 ) : (
                   <div
-                    className="w-10 h-10 border-[3px] border-pixel-outline shadow-pixel-sm flex items-center justify-center font-pixel text-xs text-white"
-                    style={{ backgroundColor: user.color }}
+                    className="w-10 h-10 border border-border shadow-soft flex items-center justify-center font-display text-xs text-text-secondary rounded-full bg-surface-muted"
                   >
                     {user.name.charAt(0).toUpperCase()}
                   </div>
@@ -168,10 +151,11 @@ const UserList = ({ awareness }: UserListProps) => {
                   -right-0.5
                   w-3
                   h-3
-                  bg-pixel-green-lime
-                  border-[2px]
-                  border-pixel-white
-                  shadow-pixel-sm
+                  bg-brand-teal
+                  border-2
+                  border-white
+                  shadow-soft
+                  rounded-full
                 " />
               </div>
 
@@ -180,25 +164,12 @@ const UserList = ({ awareness }: UserListProps) => {
                 font-sans
                 text-sm
                 font-medium
-                text-pixel-text-primary
+                text-text-primary
                 truncate
                 flex-1
               ">
                 {user.name}
               </span>
-
-              {/* User color indicator (small square) */}
-              <div
-                className="
-                  flex-shrink-0
-                  w-4
-                  h-4
-                  border-[2px]
-                  border-pixel-outline
-                  shadow-pixel-sm
-                "
-                style={{ backgroundColor: user.color }}
-              />
             </div>
           ))
         )}

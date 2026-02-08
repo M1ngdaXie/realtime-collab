@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { versionsApi, type DocumentVersion } from '../../api/document';
 import * as Y from 'yjs';
+import PixelIcon from '../PixelIcon/PixelIcon';
 import './VersionHistoryPanel.css';
 
 interface VersionHistoryPanelProps {
@@ -180,6 +181,7 @@ function VersionHistoryPanel({ documentId, ydoc, canEdit, onClose }: VersionHist
             <div className="loading-state">Loading versions...</div>
           ) : versions.length === 0 ? (
             <div className="empty-state">
+              <PixelIcon name="gem" size={18} color="hsl(var(--brand-teal))" />
               <p>No versions yet</p>
               <small>Versions are created when you save manually or automatically over time</small>
             </div>

@@ -6,6 +6,7 @@ import UserList from "../components/Presence/UserList.tsx";
 import ShareModal from "../components/Share/ShareModal.tsx";
 import VersionHistoryPanel from "../components/VersionHistory/VersionHistoryPanel.tsx";
 import { useYjsDocument } from "../hooks/useYjsDocument.ts";
+import { Eye } from "lucide-react";
 
 const EditorPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,14 +28,11 @@ const EditorPage = () => {
         <button onClick={() => navigate("/")}>← Back to Home</button>
         <div className="header-actions">
           {permission !== "edit" && permission !== null && (
-            <div className="view-only-badge" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 12px', backgroundColor: '#f0f0f0', borderRadius: '4px', fontSize: '14px' }}>
-              <span>👁️</span>
+            <div className="view-only-badge">
+              <Eye className="view-only-icon" />
               <span>View only</span>
             </div>
           )}
-          <div className="sync-status">
-            {synced ? "✓ Synced" : "⟳ Syncing..."}
-          </div>
           {!shareToken && (
             <button className="share-btn" onClick={() => setShowShareModal(true)}>
               Share

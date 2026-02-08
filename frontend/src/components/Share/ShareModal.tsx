@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { shareApi } from '../../api/share';
 import type { DocumentShareWithUser, ShareLink } from '../../types/share';
+import PixelIcon from '../PixelIcon/PixelIcon';
 import './ShareModal.css';
 
 interface ShareModalProps {
@@ -152,20 +153,8 @@ function ShareModal({ documentId, onClose, currentPermission, currentRole }: Sha
         </div>
 
         {currentRole && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 16px',
-              backgroundColor: currentRole === 'owner' ? '#e8f5e9' : currentPermission === 'edit' ? '#fff3e0' : '#e3f2fd',
-              borderRadius: '8px',
-              margin: '16px 0',
-              fontSize: '14px',
-              fontWeight: '500',
-            }}
-          >
-            <span style={{ fontSize: '18px' }}>
+          <div className={`role-banner ${currentRole}`}>
+            <span className="role-icon">
               {currentRole === 'owner' ? '👑' : currentPermission === 'edit' ? '✏️' : '👁️'}
             </span>
             <span>
@@ -222,7 +211,10 @@ function ShareModal({ documentId, onClose, currentPermission, currentRole }: Sha
             <div className="shares-list">
               <h3>People with access</h3>
               {shares.length === 0 ? (
-                <p className="empty-state">No users have been given access yet.</p>
+                <div className="empty-state">
+                  <PixelIcon name="gem" size={18} color="hsl(var(--brand-teal))" />
+                  <p>No users have been given access yet.</p>
+                </div>
               ) : (
                 shares.map((share) => (
                   <div key={share.id} className="share-item">

@@ -23,20 +23,18 @@ export function CreateButton({ onClick, disabled, icon, children }: CreateButton
       onClick={onClick}
       disabled={disabled}
       className="
-        bg-pixel-purple-bright
-        hover:bg-pixel-purple-deep
+        bg-brand
+        hover:bg-brand-dark
         text-white
-        border-[3px]
-        border-pixel-outline
-        shadow-pixel
-        hover:shadow-pixel-hover
+        border
+        border-border
+        shadow-card
+        hover:shadow-float
         hover:-translate-y-0.5
-        hover:-translate-x-0.5
         active:translate-y-0.5
-        active:translate-x-0.5
-        active:shadow-pixel-active
+        active:shadow-soft
         transition-all
-        duration-75
+        duration-150
         font-sans
         font-semibold
         px-6
