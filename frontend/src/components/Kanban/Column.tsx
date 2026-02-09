@@ -7,7 +7,6 @@ import type { KanbanColumn, Task } from "./KanbanBoard.tsx";
 interface ColumnProps {
   column: KanbanColumn;
   onAddTask: (task: Task) => void;
-  onMoveTask: (taskId: string, toColumnId: string) => void;
 }
 
 const Column = ({ column, onAddTask }: ColumnProps) => {
@@ -21,7 +20,7 @@ const Column = ({ column, onAddTask }: ColumnProps) => {
   const handleAddTask = () => {
     if (newTaskTitle.trim()) {
       onAddTask({
-        id: `task-${Date.now()}`,
+        id: `task-${crypto.randomUUID()}`,
         title: newTaskTitle,
         description: "",
       });

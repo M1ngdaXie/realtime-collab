@@ -6,6 +6,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import type { YjsProviders } from "../../lib/yjs";
 import Column from "./Column.tsx";
 
@@ -71,17 +72,44 @@ const KanbanBoard = ({ providers }: KanbanBoardProps) => {
     if (columnIndex !== -1) {
       providers.ydoc.transact(() => {
         const column = cols[columnIndex] as KanbanColumn;
-        column.tasks.push(task);
+        const nextTasks = [...column.tasks, task];
+        const nextColumn = { ...column, tasks: nextTasks };
         yarray.delete(columnIndex, 1);
-        yarray.insert(columnIndex, [column]);
+        yarray.insert(columnIndex, [nextColumn]);
       });
     }
+  };
+
+  const replaceColumn = (index: number, column: KanbanColumn) => {
+    const yarray = providers.ydoc.getArray("kanban-columns");
+    yarray.delete(index, 1);
+    yarray.insert(index, [column]);
+  };
+
+  const findColumnByTaskId = (taskId: string) =>
+    columns.find((col) => col.tasks.some((task) => task.id === taskId));
+
+  const reorderTask = (columnId: string, fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+    const yarray = providers.ydoc.getArray("kanban-columns");
+    const cols = yarray.toArray();
+    const columnIndex = cols.findIndex((col: any) => col.id === columnId);
+    if (columnIndex === -1) return;
+
+    const column = cols[columnIndex] as KanbanColumn;
+    const nextTasks = arrayMove(column.tasks, fromIndex, toIndex);
+    const nextColumn = { ...column, tasks: nextTasks };
+
+    providers.ydoc.transact(() => {
+      replaceColumn(columnIndex, nextColumn);
+    });
   };
 
   const moveTask = (
     fromColumnId: string,
     toColumnId: string,
-    taskId: string
+    taskId: string,
+    overTaskId?: string
   ) => {
     const yarray = providers.ydoc.getArray("kanban-columns");
     const cols = yarray.toArray();
@@ -91,18 +119,30 @@ const KanbanBoard = ({ providers }: KanbanBoardProps) => {
 
     if (fromIndex !== -1 && toIndex !== -1) {
       providers.ydoc.transact(() => {
-        const fromCol = { ...(cols[fromIndex] as KanbanColumn) };
-        const toCol = { ...(cols[toIndex] as KanbanColumn) };
+        const fromCol = cols[fromIndex] as KanbanColumn;
+        const toCol = cols[toIndex] as KanbanColumn;
+        const nextFromTasks = [...fromCol.tasks];
+        const nextToTasks = fromIndex === toIndex ? nextFromTasks : [...toCol.tasks];
 
-        const taskIndex = fromCol.tasks.findIndex((t: Task) => t.id === taskId);
+        const taskIndex = nextFromTasks.findIndex((t: Task) => t.id === taskId);
         if (taskIndex !== -1) {
-          const [task] = fromCol.tasks.splice(taskIndex, 1);
-          toCol.tasks.push(task);
+          const [task] = nextFromTasks.splice(taskIndex, 1);
+          const insertIndex =
+            overTaskId && overTaskId !== toColumnId
+              ? nextToTasks.findIndex((t: Task) => t.id === overTaskId)
+              : -1;
 
-          yarray.delete(fromIndex, 1);
-          yarray.insert(fromIndex, [fromCol]);
-          yarray.delete(toIndex, 1);
-          yarray.insert(toIndex, [toCol]);
+          if (insertIndex >= 0) {
+            nextToTasks.splice(insertIndex, 0, task);
+          } else {
+            nextToTasks.push(task);
+          }
+
+          const nextFromCol = { ...fromCol, tasks: nextFromTasks };
+          const nextToCol = { ...toCol, tasks: nextToTasks };
+
+          replaceColumn(fromIndex, nextFromCol);
+          replaceColumn(toIndex, nextToCol);
         }
       });
     }
@@ -114,16 +154,28 @@ const KanbanBoard = ({ providers }: KanbanBoardProps) => {
     if (!over) return;
 
     const taskId = active.id as string;
-    const targetColumnId = over.id as string;
+    const overId = over.id as string;
 
     // Find which column the task is currently in
-    const fromColumn = columns.find(col =>
-      col.tasks.some(task => task.id === taskId)
-    );
+    const fromColumn = findColumnByTaskId(taskId);
+    if (!fromColumn) return;
 
-    if (fromColumn && fromColumn.id !== targetColumnId) {
-      moveTask(fromColumn.id, targetColumnId, taskId);
+    const overColumn =
+      columns.find((col) => col.id === overId) || findColumnByTaskId(overId);
+    if (!overColumn) return;
+
+    if (fromColumn.id === overColumn.id) {
+      // Reorder within the same column
+      const oldIndex = fromColumn.tasks.findIndex((task) => task.id === taskId);
+      const newIndex = fromColumn.tasks.findIndex((task) => task.id === overId);
+      if (newIndex !== -1 && oldIndex !== -1) {
+        reorderTask(fromColumn.id, oldIndex, newIndex);
+      }
+      return;
     }
+
+    // Move to a different column
+    moveTask(fromColumn.id, overColumn.id, taskId, overId);
   };
 
   return (
@@ -134,9 +186,6 @@ const KanbanBoard = ({ providers }: KanbanBoardProps) => {
             key={column.id}
             column={column}
             onAddTask={(task) => addTask(column.id, task)}
-            onMoveTask={(taskId, toColumnId) =>
-              moveTask(column.id, toColumnId, taskId)
-            }
           />
         ))}
       </div>

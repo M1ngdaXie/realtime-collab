@@ -6,12 +6,19 @@ import './ShareModal.css';
 
 interface ShareModalProps {
   documentId: string;
+  documentType?: 'editor' | 'kanban';
   onClose: () => void;
   currentPermission?: string;
   currentRole?: string;
 }
 
-function ShareModal({ documentId, onClose, currentPermission, currentRole }: ShareModalProps) {
+function ShareModal({
+  documentId,
+  documentType = 'editor',
+  onClose,
+  currentPermission,
+  currentRole,
+}: ShareModalProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'link'>('users');
   const [shares, setShares] = useState<DocumentShareWithUser[]>([]);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
@@ -138,7 +145,7 @@ function ShareModal({ documentId, onClose, currentPermission, currentRole }: Sha
   const handleCopyLink = () => {
     if (!shareLink) return;
 
-    const url = `${window.location.origin}/editor/${documentId}?share=${shareLink.token}`;
+    const url = `${window.location.origin}/${documentType}/${documentId}?share=${shareLink.token}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -278,7 +285,7 @@ function ShareModal({ documentId, onClose, currentPermission, currentRole }: Sha
                 <div className="link-box">
                   <input
                     type="text"
-                    value={`${window.location.origin}/editor/${documentId}?share=${shareLink.token}`}
+                    value={`${window.location.origin}/${documentType}/${documentId}?share=${shareLink.token}`}
                     readOnly
                     className="link-input"
                   />

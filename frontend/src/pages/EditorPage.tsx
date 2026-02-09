@@ -58,6 +58,7 @@ const EditorPage = () => {
       {showShareModal && (
         <ShareModal
           documentId={id!}
+          documentType="editor"
           onClose={() => setShowShareModal(false)}
           currentPermission={permission || undefined}
           currentRole={role || undefined}

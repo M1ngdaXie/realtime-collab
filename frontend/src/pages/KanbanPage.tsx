@@ -42,7 +42,11 @@ const KanbanPage = () => {
       </div>
 
       {showShareModal && (
-        <ShareModal documentId={id!} onClose={() => setShowShareModal(false)} />
+        <ShareModal
+          documentId={id!}
+          documentType="kanban"
+          onClose={() => setShowShareModal(false)}
+        />
       )}
     </div>
   );
