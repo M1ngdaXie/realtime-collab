@@ -6,6 +6,13 @@
   background: hsl(var(--background));
 }
 
+.landing-theme-toggle {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 20;
+}
+
 /* ========================================
    Hero Section
    ======================================== */
@@ -48,6 +55,12 @@
   border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-sm);
   margin-bottom: 1.5rem;
+}
+
+.hero-logo-icon {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
 }
 
 .hero-brand {

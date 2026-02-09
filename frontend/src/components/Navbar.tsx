@@ -1,7 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import PixelIcon from '@/components/PixelIcon/PixelIcon';
 import { LogOut } from 'lucide-react';
+import DocNestLogo from '@/assets/docnest/docnest-icon-128.png';
+import ThemeToggle from '@/components/ThemeToggle';
 
 function Navbar() {
   const { user, logout } = useAuth();
@@ -35,12 +36,18 @@ function Navbar() {
             gap-2
           "
         >
-          <PixelIcon name="gem" size={18} color="hsl(var(--brand-teal))" />
+          <img
+            src={DocNestLogo}
+            alt="DocNest"
+            className="w-6 h-6"
+            style={{ imageRendering: 'pixelated' }}
+          />
           DocNest
         </a>
 
         {/* User Section */}
         <div className="flex items-center gap-4">
+          <ThemeToggle className="shadow-soft hover:shadow-card transition-all duration-150" />
           {user.avatar_url && (
             <img
               src={user.avatar_url}

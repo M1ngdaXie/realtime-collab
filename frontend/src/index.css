@@ -27,6 +27,28 @@
     --ring: 214 89% 52%;
     --radius: 0.75rem;
   }
+
+  .dark {
+    --background: 215 26% 7%;
+    --foreground: 0 0% 98%;
+    --card: 215 21% 11%;
+    --card-foreground: 0 0% 98%;
+    --popover: 215 21% 11%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 213 93% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 173 70% 42%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 215 15% 15%;
+    --muted-foreground: 215 10% 58%;
+    --accent: 197 100% 68%;
+    --accent-foreground: 215 26% 7%;
+    --destructive: 0 70% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 12% 21%;
+    --input: 215 12% 21%;
+    --ring: 213 93% 60%;
+  }
 }
 
 * {
@@ -79,6 +101,47 @@
     --pixel-text-primary: #0F172A;
     --pixel-text-secondary: #334155;
     --pixel-text-muted: #64748B;
+  }
+
+  .dark {
+    --surface: 215 21% 11%;
+    --surface-muted: 215 15% 15%;
+    --text-primary: 0 0% 98%;
+    --text-secondary: 215 15% 82%;
+    --text-muted: 215 10% 70%;
+    --brand: 213 93% 60%;
+    --brand-dark: 213 90% 52%;
+    --brand-teal: 173 70% 42%;
+    --brand-teal-dark: 173 68% 34%;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-md: 0 12px 30px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.65);
+    --focus-ring: 0 0 0 3px rgba(88, 166, 255, 0.35);
+    --gradient-hero: linear-gradient(120deg, #0d1117 0%, #111827 55%, #161b22 100%);
+    --gradient-accent: linear-gradient(120deg, #2f81f7 0%, #14b8a6 100%);
+
+    --pixel-purple-deep: #0b1f4b;
+    --pixel-purple-bright: #2f81f7;
+    --pixel-pink-vibrant: #58a6ff;
+    --pixel-cyan-bright: #14b8a6;
+    --pixel-orange-warm: #f59e0b;
+    --pixel-yellow-gold: #fbbf24;
+    --pixel-green-lime: #22c55e;
+    --pixel-green-forest: #16a34a;
+
+    --pixel-bg-dark: #0d1117;
+    --pixel-bg-medium: #161b22;
+    --pixel-bg-light: #1f2937;
+    --pixel-panel: #0f172a;
+    --pixel-white: #e5e7eb;
+
+    --pixel-shadow-dark: rgba(0, 0, 0, 0.5);
+    --pixel-outline: #30363d;
+
+    --pixel-text-primary: #e5e7eb;
+    --pixel-text-secondary: #c9d1d9;
+    --pixel-text-muted: #8b949e;
   }
 
   body {

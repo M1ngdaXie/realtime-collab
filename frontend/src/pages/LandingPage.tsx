@@ -1,5 +1,7 @@
 import FloatingGem from '../components/PixelSprites/FloatingGem';
 import PixelIcon from '../components/PixelIcon/PixelIcon';
+import DocNestLogo from '../assets/docnest/docnest-icon-128.png';
+import ThemeToggle from '../components/ThemeToggle';
 import { API_BASE_URL } from '../config';
 import './LandingPage.css';
 
@@ -14,6 +16,9 @@ function LandingPage() {
 
   return (
     <div className="landing-page">
+      <div className="landing-theme-toggle">
+        <ThemeToggle />
+      </div>
       {/* Hero Section */}
       <section className="landing-hero">
         <div className="hero-gem hero-gem-one">
@@ -26,7 +31,11 @@ function LandingPage() {
         <div className="hero-grid">
           <div className="hero-content">
             <div className="hero-logo">
-              <PixelIcon name="gem" size={28} color="hsl(var(--brand-teal))" />
+              <img
+                src={DocNestLogo}
+                alt="DocNest"
+                className="hero-logo-icon"
+              />
               <span className="hero-brand">DocNest</span>
             </div>
 

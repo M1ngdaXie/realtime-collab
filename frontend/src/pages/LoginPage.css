@@ -5,6 +5,7 @@
   justify-content: center;
   background: var(--gradient-hero);
   padding: 24px;
+  position: relative;
 }
 
 .login-container {
@@ -18,11 +19,32 @@
   text-align: center;
 }
 
+.login-theme-toggle {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 20;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.login-logo {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+
 .login-title {
   font-size: 32px;
   font-weight: 700;
   color: hsl(var(--text-primary));
-  margin: 0 0 8px 0;
+  margin: 0;
 }
 
 .login-subtitle {

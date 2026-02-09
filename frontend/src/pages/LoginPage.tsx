@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config';
+import DocNestLogo from '../assets/docnest/docnest-icon-128.png';
+import ThemeToggle from '../components/ThemeToggle';
 import './LoginPage.css';
 
 function LoginPage() {
@@ -34,8 +36,14 @@ function LoginPage() {
 
   return (
     <div className="login-page">
+      <div className="login-theme-toggle">
+        <ThemeToggle />
+      </div>
       <div className="login-container">
-        <h1 className="login-title">DocNest</h1>
+        <div className="login-brand">
+          <img src={DocNestLogo} alt="DocNest" className="login-logo" />
+          <h1 className="login-title">DocNest</h1>
+        </div>
         <p className="login-subtitle">Collaborate in real time with your team</p>
 
         <div className="login-buttons">
