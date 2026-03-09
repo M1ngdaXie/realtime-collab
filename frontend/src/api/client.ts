@@ -32,6 +32,10 @@ export async function authFetch(url: string, options?: RequestInit): Promise<Res
   // Handle 401: Token expired or invalid
   if (response.status === 401) {
     localStorage.removeItem('auth_token');
+    const currentPath = window.location.pathname + window.location.search;
+    if (currentPath !== '/' && currentPath !== '/login') {
+      sessionStorage.setItem('oauth_redirect', currentPath);
+    }
     window.location.href = '/login';
     throw new Error('Unauthorized');
   }

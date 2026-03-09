@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config';
 import DocNestLogo from '../assets/docnest/docnest-icon-128.png';
@@ -9,6 +9,7 @@ import './LoginPage.css';
 function LoginPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     if (!loading && user) {
@@ -16,12 +17,20 @@ function LoginPage() {
     }
   }, [user, loading, navigate]);
 
+  const saveRedirectAndGo = (oauthUrl: string) => {
+    const redirect = searchParams.get('redirect');
+    if (redirect) {
+      sessionStorage.setItem('oauth_redirect', redirect);
+    }
+    window.location.href = oauthUrl;
+  };
+
   const handleGoogleLogin = () => {
-    window.location.href = `${API_BASE_URL}/auth/google`;
+    saveRedirectAndGo(`${API_BASE_URL}/auth/google`);
   };
 
   const handleGitHubLogin = () => {
-    window.location.href = `${API_BASE_URL}/auth/github`;
+    saveRedirectAndGo(`${API_BASE_URL}/auth/github`);
   };
 
   if (loading) {

@@ -11,7 +11,11 @@ function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       const token = searchParams.get('token');
-      const redirect = searchParams.get('redirect') || '/';
+      const redirect =
+        searchParams.get('redirect') ||
+        sessionStorage.getItem('oauth_redirect') ||
+        '/';
+      sessionStorage.removeItem('oauth_redirect');
 
       if (!token) {
         setError('No authentication token received');
