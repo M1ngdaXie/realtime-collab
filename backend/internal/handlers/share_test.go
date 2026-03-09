@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/zap"
 )
 
 // ShareHandlerSuite tests for share handler endpoints
@@ -24,7 +25,7 @@ func (s *ShareHandlerSuite) SetupTest() {
 	s.BaseHandlerSuite.SetupTest()
 
 	// Create handler and router
-	authMiddleware := auth.NewAuthMiddleware(s.store, s.jwtSecret)
+	authMiddleware := auth.NewAuthMiddleware(s.store, s.jwtSecret, zap.NewNop())
 	s.handler = NewShareHandler(s.store, s.cfg)
 	s.router = gin.New()
 

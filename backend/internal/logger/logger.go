@@ -23,7 +23,7 @@ func NewLogger(isDevelopment bool) (*zap.Logger, error) {
     // 👇 关键修改：直接拉到 Fatal 级别
     // 这样 Error, Warn, Info, Debug 全部都会被忽略
     // 彻底消除 IO 锁竞争
-    config.Level = zap.NewAtomicLevelAt(zapcore.FatalLevel)
+    config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 
     logger, err := config.Build()
     if err != nil {

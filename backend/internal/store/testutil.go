@@ -71,10 +71,14 @@ func SetupTestDB(t *testing.T) (*PostgresStore, func()) {
 	// Run migrations
 	scriptsDir := filepath.Join("..", "..", "scripts")
 	migrations := []string{
-		"init.sql",
-		"001_add_users_and_sessions.sql",
-		"002_add_document_shares.sql",
-		"003_add_public_sharing.sql",
+		"000_extensions.sql",
+		"001_init_schema.sql",
+		"002_add_users_and_sessions.sql",
+		"003_add_document_shares.sql",
+		"004_add_public_sharing.sql",
+		"005_add_share_link_permission.sql",
+		"010_add_stream_checkpoints.sql",
+		"011_add_update_history.sql",
 	}
 
 	for _, migration := range migrations {
@@ -107,6 +111,8 @@ func SetupTestDB(t *testing.T) (*PostgresStore, func()) {
 func TruncateAllTables(ctx context.Context, store *PostgresStore) error {
 	tables := []string{
 		"document_updates",
+		"document_update_history",
+		"stream_checkpoints",
 		"document_shares",
 		"sessions",
 		"documents",

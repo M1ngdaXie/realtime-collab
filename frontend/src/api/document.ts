@@ -53,8 +53,11 @@ export const documentsApi = {
   },
 
   // Get document Yjs state
-  getState: async (id: string): Promise<Uint8Array> => {
-    const response = await authFetch(`${API_BASE_URL}/documents/${id}/state`);
+  getState: async (id: string, shareToken?: string): Promise<Uint8Array> => {
+    const url = shareToken
+      ? `${API_BASE_URL}/documents/${id}/state?share=${shareToken}`
+      : `${API_BASE_URL}/documents/${id}/state`;
+    const response = await authFetch(url);
     if (!response.ok) throw new Error("Failed to fetch document state");
     const arrayBuffer = await response.arrayBuffer();
     return new Uint8Array(arrayBuffer);

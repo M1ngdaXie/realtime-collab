@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"strconv"
 	"sync"
 	"time"
@@ -87,6 +88,23 @@ func NewRedisMessageBus(redisURL string, serverID string, logger *zap.Logger) (*
 	// - Set high to avoid unnecessary reconnections during stable operation
 	// - Redis will handle stale connections via TCP keepalive
 	opts.ConnMaxLifetime = 1 * time.Hour
+
+	// ================================
+	// Socket-Level Timeout Configuration (prevents indefinite hangs)
+	// ================================
+	// Without these, TCP reads/writes block indefinitely when Redis is unresponsive,
+	// causing OS-level timeouts (60-120s) instead of application-level control.
+
+	// DialTimeout: How long to wait for initial connection establishment
+	opts.DialTimeout = 5 * time.Second
+
+	// ReadTimeout: Maximum time for socket read operations
+	// - 30s is appropriate for PubSub (long intervals between messages are normal)
+	// - Prevents indefinite blocking when Redis hangs
+	opts.ReadTimeout = 30 * time.Second
+
+	// WriteTimeout: Maximum time for socket write operations
+	opts.WriteTimeout = 5 * time.Second
 
 	client := goredis.NewClient(opts)
 
@@ -215,12 +233,15 @@ func (r *RedisMessageBus) readLoop(ctx context.Context, roomID string, sub *subs
 			if ctx.Err() != nil {
 				return
 			}
+			r.logger.Warn("PubSub initial subscription failed, retrying with backoff",
+				zap.String("roomID", roomID),
+				zap.Error(err),
+				zap.Duration("backoff", backoff),
+			)
 			time.Sleep(backoff)
-			if backoff < maxBackoff {
-				backoff *= 2
-				if backoff > maxBackoff {
-					backoff = maxBackoff
-				}
+			backoff = backoff * 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
 			}
 			continue
 		}
@@ -242,12 +263,15 @@ func (r *RedisMessageBus) readLoop(ctx context.Context, roomID string, sub *subs
 			if ctx.Err() != nil {
 				return
 			}
+			r.logger.Warn("PubSub receive failed, retrying with backoff",
+				zap.String("roomID", roomID),
+				zap.Error(err),
+				zap.Duration("backoff", backoff),
+			)
 			time.Sleep(backoff)
-			if backoff < maxBackoff {
-				backoff *= 2
-				if backoff > maxBackoff {
-					backoff = maxBackoff
-				}
+			backoff = backoff * 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
 			}
 		}
 	}
@@ -261,10 +285,13 @@ func (r *RedisMessageBus) receiveOnce(ctx context.Context, roomID string, pubsub
 
 		msg, err := pubsub.ReceiveTimeout(ctx, 5*time.Second)
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-				return err
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
 			if errors.Is(err, goredis.Nil) {
+				continue
+			}
+			if isTimeoutErr(err) {
 				continue
 			}
 			r.logger.Warn("pubsub receive error, closing subscription",
@@ -306,6 +333,17 @@ func (r *RedisMessageBus) receiveOnce(ctx context.Context, roomID string, pubsub
 			continue
 		}
 	}
+}
+
+func isTimeoutErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 // Unsubscribe stops listening to a room
@@ -430,7 +468,7 @@ func (r *RedisMessageBus) DeleteAwareness(ctx context.Context, roomID string, cl
 
 // IsHealthy checks Redis connectivity
 func (r *RedisMessageBus) IsHealthy() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	// 只有 Ping 成功且没有报错，才认为服务是健康的
@@ -514,5 +552,225 @@ func (r *RedisMessageBus) Close() error {
 func (r *RedisMessageBus) ClearAllAwareness(ctx context.Context, roomID string) error {
 	key := fmt.Sprintf("room:%s:awareness", roomID)
 	// 直接使用 Del 命令删除整个 Key
+	return r.client.Del(ctx, key).Err()
+}
+
+// ========== Redis Streams Operations ==========
+
+// XAdd adds a new entry to a stream with optional MAXLEN trimming
+func (r *RedisMessageBus) XAdd(ctx context.Context, stream string, maxLen int64, approx bool, values map[string]interface{}) (string, error) {
+	result := r.client.XAdd(ctx, &goredis.XAddArgs{
+		Stream: stream,
+		MaxLen: maxLen,
+		Approx: approx,
+		Values: values,
+	})
+	return result.Val(), result.Err()
+}
+
+// XReadGroup reads messages from a stream using a consumer group
+func (r *RedisMessageBus) XReadGroup(ctx context.Context, group, consumer string, streams []string, count int64, block time.Duration) ([]StreamMessage, error) {
+	result := r.client.XReadGroup(ctx, &goredis.XReadGroupArgs{
+		Group:    group,
+		Consumer: consumer,
+		Streams:  streams,
+		Count:    count,
+		Block:    block,
+	})
+
+	if err := result.Err(); err != nil {
+		// Timeout is not an error, just no new messages
+		if err == goredis.Nil {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Convert go-redis XStream to our StreamMessage format
+	var messages []StreamMessage
+	for _, stream := range result.Val() {
+		for _, msg := range stream.Messages {
+			messages = append(messages, StreamMessage{
+				ID:     msg.ID,
+				Values: msg.Values,
+			})
+		}
+	}
+
+	return messages, nil
+}
+
+// XAck acknowledges one or more messages from a consumer group
+func (r *RedisMessageBus) XAck(ctx context.Context, stream, group string, ids ...string) (int64, error) {
+	result := r.client.XAck(ctx, stream, group, ids...)
+	return result.Val(), result.Err()
+}
+
+// XGroupCreate creates a new consumer group for a stream
+func (r *RedisMessageBus) XGroupCreate(ctx context.Context, stream, group, start string) error {
+	return r.client.XGroupCreate(ctx, stream, group, start).Err()
+}
+
+// XGroupCreateMkStream creates a consumer group and the stream if it doesn't exist
+func (r *RedisMessageBus) XGroupCreateMkStream(ctx context.Context, stream, group, start string) error {
+	return r.client.XGroupCreateMkStream(ctx, stream, group, start).Err()
+}
+
+// XPending returns pending messages information for a consumer group
+func (r *RedisMessageBus) XPending(ctx context.Context, stream, group string) (*PendingInfo, error) {
+	result := r.client.XPending(ctx, stream, group)
+	if err := result.Err(); err != nil {
+		return nil, err
+	}
+
+	pending := result.Val()
+	consumers := make(map[string]int64)
+	for name, count := range pending.Consumers {
+		consumers[name] = count
+	}
+
+	return &PendingInfo{
+		Count:     pending.Count,
+		Lower:     pending.Lower,
+		Upper:     pending.Higher, // go-redis uses "Higher" instead of "Upper"
+		Consumers: consumers,
+	}, nil
+}
+
+// XClaim claims pending messages from a consumer group
+func (r *RedisMessageBus) XClaim(ctx context.Context, stream, group, consumer string, minIdleTime time.Duration, ids ...string) ([]StreamMessage, error) {
+	result := r.client.XClaim(ctx, &goredis.XClaimArgs{
+		Stream:   stream,
+		Group:    group,
+		Consumer: consumer,
+		MinIdle:  minIdleTime,
+		Messages: ids,
+	})
+
+	if err := result.Err(); err != nil {
+		return nil, err
+	}
+
+	// Convert go-redis XMessage to our StreamMessage format
+	var messages []StreamMessage
+	for _, msg := range result.Val() {
+		messages = append(messages, StreamMessage{
+			ID:     msg.ID,
+			Values: msg.Values,
+		})
+	}
+
+	return messages, nil
+}
+
+// XAutoClaim claims pending messages automatically (Redis >= 6.2)
+func (r *RedisMessageBus) XAutoClaim(ctx context.Context, stream, group, consumer string, minIdleTime time.Duration, start string, count int64) ([]StreamMessage, string, error) {
+	result := r.client.XAutoClaim(ctx, &goredis.XAutoClaimArgs{
+		Stream:   stream,
+		Group:    group,
+		Consumer: consumer,
+		MinIdle:  minIdleTime,
+		Start:    start,
+		Count:    count,
+	})
+	msgs, nextStart, err := result.Result()
+	if err != nil {
+		return nil, "", err
+	}
+	messages := make([]StreamMessage, 0, len(msgs))
+	for _, msg := range msgs {
+		messages = append(messages, StreamMessage{
+			ID:     msg.ID,
+			Values: msg.Values,
+		})
+	}
+	return messages, nextStart, nil
+}
+
+// XRange reads a range of messages from a stream
+func (r *RedisMessageBus) XRange(ctx context.Context, stream, start, end string) ([]StreamMessage, error) {
+	result := r.client.XRange(ctx, stream, start, end)
+	if err := result.Err(); err != nil {
+		return nil, err
+	}
+
+	// Convert go-redis XMessage to our StreamMessage format
+	var messages []StreamMessage
+	for _, msg := range result.Val() {
+		messages = append(messages, StreamMessage{
+			ID:     msg.ID,
+			Values: msg.Values,
+		})
+	}
+
+	return messages, nil
+}
+
+// XTrimMinID trims a stream to a minimum ID (time-based retention)
+func (r *RedisMessageBus) XTrimMinID(ctx context.Context, stream, minID string) (int64, error) {
+	// Use XTRIM with MINID and approximation (~) for efficiency
+	// LIMIT clause prevents blocking Redis during large trims
+	result := r.client.Do(ctx, "XTRIM", stream, "MINID", "~", minID, "LIMIT", 1000)
+	if err := result.Err(); err != nil {
+		return 0, err
+	}
+
+	// Result is the number of entries removed
+	trimmed, err := result.Int64()
+	if err != nil {
+		return 0, err
+	}
+
+	return trimmed, nil
+}
+
+// ========== Sorted Set (ZSET) Operations ==========
+
+// ZAdd adds a member with a score to a sorted set
+func (r *RedisMessageBus) ZAdd(ctx context.Context, key string, score float64, member string) error {
+	return r.client.ZAdd(ctx, key, goredis.Z{Score: score, Member: member}).Err()
+}
+
+// ZRangeByScore returns members with scores between min and max
+func (r *RedisMessageBus) ZRangeByScore(ctx context.Context, key string, min, max float64) ([]string, error) {
+	return r.client.ZRangeByScore(ctx, key, &goredis.ZRangeBy{
+		Min: strconv.FormatFloat(min, 'f', -1, 64),
+		Max: strconv.FormatFloat(max, 'f', -1, 64),
+	}).Result()
+}
+
+// ZRemRangeByScore removes members with scores between min and max
+func (r *RedisMessageBus) ZRemRangeByScore(ctx context.Context, key string, min, max float64) (int64, error) {
+	return r.client.ZRemRangeByScore(ctx, key,
+		strconv.FormatFloat(min, 'f', -1, 64),
+		strconv.FormatFloat(max, 'f', -1, 64),
+	).Result()
+}
+
+// Incr increments a counter atomically (for sequence numbers)
+func (r *RedisMessageBus) Incr(ctx context.Context, key string) (int64, error) {
+	result := r.client.Incr(ctx, key)
+	return result.Val(), result.Err()
+}
+
+// AcquireLock attempts to acquire a distributed lock with TTL
+func (r *RedisMessageBus) AcquireLock(ctx context.Context, key string, ttl time.Duration) (bool, error) {
+	return r.client.SetNX(ctx, key, r.serverID, ttl).Result()
+}
+
+// RefreshLock extends the TTL on an existing lock
+func (r *RedisMessageBus) RefreshLock(ctx context.Context, key string, ttl time.Duration) (bool, error) {
+	result := r.client.SetArgs(ctx, key, r.serverID, goredis.SetArgs{
+		Mode: "XX",
+		TTL:  ttl,
+	})
+	if err := result.Err(); err != nil {
+		return false, err
+	}
+	return result.Val() == "OK", nil
+}
+
+// ReleaseLock releases a distributed lock
+func (r *RedisMessageBus) ReleaseLock(ctx context.Context, key string) error {
 	return r.client.Del(ctx, key).Err()
 }

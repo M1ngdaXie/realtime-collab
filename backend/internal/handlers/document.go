@@ -1,22 +1,33 @@
 package handlers
 
 import (
-	"fmt"
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/M1ngdaXie/realtime-collab/internal/auth"
+	"github.com/M1ngdaXie/realtime-collab/internal/messagebus"
 	"github.com/M1ngdaXie/realtime-collab/internal/models"
 	"github.com/M1ngdaXie/realtime-collab/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type DocumentHandler struct {
-	store *store.PostgresStore
+	store      *store.PostgresStore
+	messageBus messagebus.MessageBus
+	serverID   string
+	logger     *zap.Logger
 }
 
-func NewDocumentHandler(s *store.PostgresStore) *DocumentHandler {
-	return &DocumentHandler{store: s}
+func NewDocumentHandler(s *store.PostgresStore, msgBus messagebus.MessageBus, serverID string, logger *zap.Logger) *DocumentHandler {
+	return &DocumentHandler{
+		store:      s,
+		messageBus: msgBus,
+		serverID:   serverID,
+		logger:     logger,
+	}
 }
 
 // CreateDocument creates a new document (requires auth)
@@ -45,8 +56,6 @@ func (h *DocumentHandler) CreateDocument(c *gin.Context) {
 
 func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 	userID := auth.GetUserFromContext(c)
-	fmt.Println("Getting userId, which is : ")
-	fmt.Println(userID)
 	if userID == nil {
 		respondUnauthorized(c, "Authentication required to list documents")
 		return
@@ -113,6 +122,13 @@ func (h *DocumentHandler) GetDocumentState(c *gin.Context) {
 	}
 
 	userID := auth.GetUserFromContext(c)
+	shareToken := c.Query("share")
+
+	doc, err := h.store.GetDocument(id)
+	if err != nil {
+		respondNotFound(c, "document")
+		return
+	}
 
 	// Check permission if authenticated
 	if userID != nil {
@@ -125,12 +141,22 @@ func (h *DocumentHandler) GetDocumentState(c *gin.Context) {
 			respondForbidden(c, "Access denied")
 			return
 		}
-	}
-
-	doc, err := h.store.GetDocument(id)
-	if err != nil {
-		respondNotFound(c, "document")
-		return
+	} else {
+		// Unauthenticated: require valid share token or public doc
+		if shareToken != "" {
+			valid, err := h.store.ValidateShareToken(c.Request.Context(), id, shareToken)
+			if err != nil {
+				respondInternalError(c, "Failed to validate share token", err)
+				return
+			}
+			if !valid {
+				respondForbidden(c, "Invalid or expired share token")
+				return
+			}
+		} else if !doc.Is_Public {
+			respondForbidden(c, "This document is not public. Please sign in to access.")
+			return
+		}
 	}
 
 	// Return empty byte slice if state is nil (new document)
@@ -191,6 +217,16 @@ func (h *DocumentHandler) UpdateDocumentState(c *gin.Context) {
 		return
 	}
 
+	if streamID, seq, ok := h.addSnapshotMarker(c.Request.Context(), id); ok {
+		if err := h.store.UpsertStreamCheckpoint(c.Request.Context(), id, streamID, seq); err != nil {
+			if h.logger != nil {
+				h.logger.Warn("Failed to upsert stream checkpoint after snapshot",
+					zap.String("document_id", id.String()),
+					zap.Error(err))
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "State updated successfully"})
 }
 
@@ -232,6 +268,43 @@ func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Document deleted successfully"})
+}
+
+func (h *DocumentHandler) addSnapshotMarker(ctx context.Context, documentID uuid.UUID) (string, int64, bool) {
+	if h.messageBus == nil {
+		return "", 0, false
+	}
+
+	streamKey := "stream:" + documentID.String()
+	seqKey := "seq:" + documentID.String()
+
+	seq, err := h.messageBus.Incr(ctx, seqKey)
+	if err != nil {
+		if h.logger != nil {
+			h.logger.Warn("Failed to increment snapshot sequence",
+				zap.String("document_id", documentID.String()),
+				zap.Error(err))
+		}
+		return "", 0, false
+	}
+
+	values := map[string]interface{}{
+		"type":      "snapshot",
+		"server_id": h.serverID,
+		"seq":       seq,
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	streamID, err := h.messageBus.XAdd(ctx, streamKey, 10000, true, values)
+	if err != nil {
+		if h.logger != nil {
+			h.logger.Warn("Failed to add snapshot marker to stream",
+				zap.String("stream_key", streamKey),
+				zap.Error(err))
+		}
+		return "", 0, false
+	}
+	return streamID, seq, true
 }
 
 // GetDocumentPermission returns the user's permission level for a document

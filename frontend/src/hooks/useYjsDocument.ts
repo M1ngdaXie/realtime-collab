@@ -157,10 +157,34 @@ export const useYjsDocument = (documentId: string, shareToken?: string) => {
         setSynced(true);
       });
 
+      // Connection stability monitoring with reconnection limits
+      let reconnectCount = 0;
+      const maxReconnects = 10;
+
       yjsProviders.websocketProvider.on(
         "status",
         (event: { status: string }) => {
           console.log("WebSocket status:", event.status);
+
+          if (event.status === "disconnected") {
+            reconnectCount++;
+            if (reconnectCount >= maxReconnects) {
+              console.error(
+                "Max reconnection attempts reached. Please refresh the page."
+              );
+              // Could optionally show a user notification here
+            } else {
+              console.log(
+                `Reconnection attempt ${reconnectCount}/${maxReconnects}`
+              );
+            }
+          } else if (event.status === "connected") {
+            // Reset counter on successful connection
+            if (reconnectCount > 0) {
+              console.log("Reconnected successfully, resetting counter");
+            }
+            reconnectCount = 0;
+          }
         }
       );
 

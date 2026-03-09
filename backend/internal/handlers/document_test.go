@@ -7,10 +7,12 @@ import (
 	"testing"
 
 	"github.com/M1ngdaXie/realtime-collab/internal/auth"
+	"github.com/M1ngdaXie/realtime-collab/internal/messagebus"
 	"github.com/M1ngdaXie/realtime-collab/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/zap"
 )
 
 // DocumentHandlerSuite tests document CRUD operations
@@ -23,7 +25,7 @@ type DocumentHandlerSuite struct {
 // SetupTest runs before each test
 func (s *DocumentHandlerSuite) SetupTest() {
 	s.BaseHandlerSuite.SetupTest()
-	s.handler = NewDocumentHandler(s.store)
+	s.handler = NewDocumentHandler(s.store, messagebus.NewLocalMessageBus(), "test-server", zap.NewNop())
 	s.setupRouter()
 }
 

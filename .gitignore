@@ -35,3 +35,8 @@ build/
 postgres_data/
 
 .claude/
+
+#test folder profiles
+loadtest/pprof
+
+/docs

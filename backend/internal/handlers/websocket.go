@@ -1,13 +1,18 @@
 package handlers
 
 import (
+	"context"
+	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/M1ngdaXie/realtime-collab/internal/auth"
 	"github.com/M1ngdaXie/realtime-collab/internal/config"
 	"github.com/M1ngdaXie/realtime-collab/internal/hub"
+	"github.com/M1ngdaXie/realtime-collab/internal/messagebus"
 	"github.com/M1ngdaXie/realtime-collab/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -19,16 +24,18 @@ import (
 var connectionSem = make(chan struct{}, 200)
 
 type WebSocketHandler struct {
-	hub   *hub.Hub
-	store store.Store
-	cfg   *config.Config
+	hub    *hub.Hub
+	store  store.Store
+	cfg    *config.Config
+	msgBus messagebus.MessageBus
 }
 
-func NewWebSocketHandler(h *hub.Hub, s store.Store, cfg *config.Config) *WebSocketHandler {
+func NewWebSocketHandler(h *hub.Hub, s store.Store, cfg *config.Config, msgBus messagebus.MessageBus) *WebSocketHandler {
 	return &WebSocketHandler{
-		hub:   h,
-		store: s,
-		cfg:   cfg,
+		hub:    h,
+		store:  s,
+		cfg:    cfg,
+		msgBus: msgBus,
 	}
 }
 
@@ -170,6 +177,105 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 	// Start goroutines
 	go client.WritePump()
 	go client.ReadPump()
+	go wsh.replayBacklog(client, documentID)
 
 	log.Printf("Client connected: %s (user: %s) to room: %s", clientID, userName, roomID)
+}
+
+const maxReplayUpdates = 5000
+
+func (wsh *WebSocketHandler) replayBacklog(client *hub.Client, documentID uuid.UUID) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	checkpoint, err := wsh.store.GetStreamCheckpoint(ctx, documentID)
+	if err != nil || checkpoint == nil || checkpoint.LastStreamID == "" {
+		return
+	}
+
+	streamKey := "stream:" + documentID.String()
+	var sent int
+
+	// Primary: Redis stream replay
+	if wsh.msgBus != nil {
+		messages, err := wsh.msgBus.XRange(ctx, streamKey, checkpoint.LastStreamID, "+")
+		if err == nil && len(messages) > 0 {
+			for _, msg := range messages {
+				if msg.ID == checkpoint.LastStreamID {
+					continue
+				}
+				if sent >= maxReplayUpdates {
+					log.Printf("Replay capped at %d updates for doc %s", maxReplayUpdates, documentID.String())
+					return
+				}
+				msgType := getString(msg.Values["type"])
+				if msgType != "update" {
+					continue
+				}
+				seq := parseInt64(msg.Values["seq"])
+				if seq <= checkpoint.LastSeq {
+					continue
+				}
+				payloadB64 := getString(msg.Values["yjs_payload"])
+				payload, err := base64.StdEncoding.DecodeString(payloadB64)
+				if err != nil {
+					continue
+				}
+				if client.Enqueue(payload) {
+					sent++
+				} else {
+					return
+				}
+			}
+			return
+		}
+	}
+
+	// Fallback: DB history replay
+	updates, err := wsh.store.ListUpdateHistoryAfterSeq(ctx, documentID, checkpoint.LastSeq, maxReplayUpdates)
+	if err != nil {
+		return
+	}
+	for _, upd := range updates {
+		if sent >= maxReplayUpdates {
+			log.Printf("Replay capped at %d updates for doc %s", maxReplayUpdates, documentID.String())
+			return
+		}
+		if client.Enqueue(upd.Payload) {
+			sent++
+		} else {
+			return
+		}
+	}
+}
+
+func getString(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case []byte:
+		return string(v)
+	default:
+		return fmt.Sprint(v)
+	}
+}
+
+func parseInt64(value interface{}) int64 {
+	switch v := value.(type) {
+	case int64:
+		return v
+	case int:
+		return int64(v)
+	case uint64:
+		return int64(v)
+	case string:
+		if parsed, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return parsed
+		}
+	case []byte:
+		if parsed, err := strconv.ParseInt(string(v), 10, 64); err == nil {
+			return parsed
+		}
+	}
+	return 0
 }

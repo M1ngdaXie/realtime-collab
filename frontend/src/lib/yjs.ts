@@ -30,7 +30,7 @@ export const createYjsDocument = async (
 
   // Load initial state from database BEFORE connecting providers
   try {
-    const state = await documentsApi.getState(documentId);
+    const state = await documentsApi.getState(documentId, shareToken);
     if (state && state.length > 0) {
       Y.applyUpdate(ydoc, state);
       console.log('✓ Loaded document state from database');
@@ -51,7 +51,10 @@ export const createYjsDocument = async (
     wsUrl,
     documentId,
     ydoc,
-    { params: wsParams }
+    {
+      params: wsParams,
+      maxBackoffTime: 10000, // Max 10s between reconnect attempts
+    }
   );
 
   // Awareness for cursors and presence

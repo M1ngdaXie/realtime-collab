@@ -53,6 +53,15 @@ type Store interface {
 	GetDocumentVersion(ctx context.Context, versionID uuid.UUID) (*models.DocumentVersion, error)
 	GetLatestDocumentVersion(ctx context.Context, documentID uuid.UUID) (*models.DocumentVersion, error)
 
+	// Stream checkpoint operations
+	UpsertStreamCheckpoint(ctx context.Context, documentID uuid.UUID, streamID string, seq int64) error
+	GetStreamCheckpoint(ctx context.Context, documentID uuid.UUID) (*models.StreamCheckpoint, error)
+
+	// Update history (WAL) operations
+	InsertUpdateHistoryBatch(ctx context.Context, entries []UpdateHistoryEntry) error
+	ListUpdateHistoryAfterSeq(ctx context.Context, documentID uuid.UUID, afterSeq int64, limit int) ([]UpdateHistoryEntry, error)
+	DeleteUpdateHistoryUpToSeq(ctx context.Context, documentID uuid.UUID, maxSeq int64) error
+
 	Close() error
 }
 

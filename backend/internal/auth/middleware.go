@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type contextKey string
@@ -20,41 +21,40 @@ const ContextUserIDKey = "user_id"
 type AuthMiddleware struct {
 	store     store.Store
 	jwtSecret string
+	logger    *zap.Logger
 }
 
 // NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware(store store.Store, jwtSecret string) *AuthMiddleware {
+func NewAuthMiddleware(store store.Store, jwtSecret string, logger *zap.Logger) *AuthMiddleware {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	return &AuthMiddleware{
 		store:     store,
 		jwtSecret: jwtSecret,
+		logger:    logger,
 	}
 }
 
 // RequireAuth middleware requires valid authentication
 func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		fmt.Println("🔒 RequireAuth: Starting authentication check")
-
 		user, claims, err := m.getUserFromToken(c)
 
-		fmt.Printf("🔒 RequireAuth: user=%v, err=%v\n", user, err)
-		if claims != nil {
-			fmt.Printf("🔒 RequireAuth: claims.Name=%s, claims.Email=%s\n", claims.Name, claims.Email)
-		}
-
 		if err != nil || user == nil {
-			fmt.Printf("❌ RequireAuth: FAILED - err=%v, user=%v\n", err, user)
+			if err != nil {
+				m.logger.Warn("auth failed",
+					zap.Error(err),
+					zap.String("method", c.Request.Method),
+					zap.String("path", c.FullPath()),
+				)
+			}
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
 		}
 
 		// Note: Name and Email might be empty for old JWT tokens
-		if claims.Name == "" || claims.Email == "" {
-			fmt.Printf("⚠️  RequireAuth: WARNING - Token missing name/email (using old token format)\n")
-		}
-
-		fmt.Printf("✅ RequireAuth: SUCCESS - setting context for user %v\n", user)
 		c.Set(ContextUserIDKey, user)
 		c.Set("user_email", claims.Email)
 		c.Set("user_name", claims.Name)
@@ -88,21 +88,17 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 // 注意：返回值变了，现在返回 (*uuid.UUID, *UserClaims, error)
 func (m *AuthMiddleware) getUserFromToken(c *gin.Context) (*uuid.UUID, *UserClaims, error) {
 	authHeader := c.GetHeader("Authorization")
-	fmt.Printf("🔍 getUserFromToken: Authorization header = '%s'\n", authHeader)
 
 	if authHeader == "" {
-		fmt.Println("⚠️  getUserFromToken: No Authorization header")
 		return nil, nil, nil
 	}
 
 	parts := strings.Split(authHeader, " ")
 	if len(parts) != 2 || parts[0] != "Bearer" {
-		fmt.Printf("⚠️  getUserFromToken: Invalid header format (parts=%d, prefix=%s)\n", len(parts), parts[0])
 		return nil, nil, nil
 	}
 
 	tokenString := parts[1]
-	fmt.Printf("🔍 getUserFromToken: Token = %s...\n", tokenString[:min(20, len(tokenString))])
 
 	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
 		// 必须要验证签名算法是 HMAC (HS256)
@@ -113,7 +109,6 @@ func (m *AuthMiddleware) getUserFromToken(c *gin.Context) (*uuid.UUID, *UserClai
 	})
 
 	if err != nil {
-		fmt.Printf("❌ getUserFromToken: JWT parse error: %v\n", err)
 		return nil, nil, err
 	}
 
@@ -123,17 +118,14 @@ func (m *AuthMiddleware) getUserFromToken(c *gin.Context) (*uuid.UUID, *UserClai
 		// 因为我们在 GenerateJWT 里存的是 claims.Subject = userID.String()
 		userID, err := uuid.Parse(claims.Subject)
 		if err != nil {
-			fmt.Printf("❌ getUserFromToken: Invalid UUID in subject: %v\n", err)
 			return nil, nil, fmt.Errorf("invalid user ID in token")
 		}
 
 		// 成功！直接返回 UUID 和 claims (里面包含 Name 和 Email)
 		// 这一步完全没有查数据库，速度极快
-		fmt.Printf("✅ getUserFromToken: SUCCESS - userID=%v, name=%s, email=%s\n", userID, claims.Name, claims.Email)
 		return &userID, claims, nil
 	}
 
-	fmt.Println("❌ getUserFromToken: Invalid token claims or token not valid")
 	return nil, nil, fmt.Errorf("invalid token claims")
 }
 
@@ -141,8 +133,6 @@ func (m *AuthMiddleware) getUserFromToken(c *gin.Context) (*uuid.UUID, *UserClai
 func GetUserFromContext(c *gin.Context) *uuid.UUID {
 	// 修正点：使用和存入时完全一样的 Key
 	val, exists := c.Get(ContextUserIDKey)
-	fmt.Println("within getFromContext the id is ... ")
-	fmt.Println(val)
 	if !exists {
 		return nil
 	}

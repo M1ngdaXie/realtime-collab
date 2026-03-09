@@ -2,6 +2,8 @@ package hub
 
 import (
 	"context"
+	"encoding/base64"
+	"strconv"
 	"sync"
 	"time"
 
@@ -37,10 +39,11 @@ type Client struct {
 	idsMu          sync.Mutex
 }
 type Room struct {
-	ID      string
-	clients map[*Client]bool
-	mu      sync.RWMutex
-	cancel  context.CancelFunc
+	ID             string
+	clients        map[*Client]bool
+	mu             sync.RWMutex
+	cancel         context.CancelFunc
+	reconnectCount int // Track Redis reconnection attempts for debugging
 }
 
 type Hub struct {
@@ -64,6 +67,10 @@ type Hub struct {
 
 	// Bounded worker pool for Redis SetAwareness
 	awarenessQueue chan awarenessItem
+
+	// Stream persistence worker pool (P1: Redis Streams durability)
+	streamQueue chan *Message // buffered queue for XADD operations
+	streamDone  chan struct{} // close to signal stream workers to exit
 }
 
 const (
@@ -79,6 +86,13 @@ const (
 
 	// awarenessQueueSize is the buffer size for awareness updates.
 	awarenessQueueSize = 4096
+
+	// streamWorkerCount is the number of fixed goroutines consuming from streamQueue.
+	// 50 workers match publish workers for consistent throughput.
+	streamWorkerCount = 50
+
+	// streamQueueSize is the buffer size for the stream persistence queue.
+	streamQueueSize = 4096
 )
 
 type awarenessItem struct {
@@ -103,11 +117,15 @@ func NewHub(messagebus messagebus.MessageBus, serverID string, logger *zap.Logge
 		publishDone:  make(chan struct{}),
 		// bounded awareness worker pool
 		awarenessQueue: make(chan awarenessItem, awarenessQueueSize),
+		// Stream persistence worker pool
+		streamQueue: make(chan *Message, streamQueueSize),
+		streamDone:  make(chan struct{}),
 	}
 
 	// Start the fixed worker pool for Redis publishing
 	h.startPublishWorkers(publishWorkerCount)
 	h.startAwarenessWorkers(awarenessWorkerCount)
+	h.startStreamWorkers(streamWorkerCount)
 
 	return h
 }
@@ -171,6 +189,82 @@ func (h *Hub) startAwarenessWorkers(n int) {
 		}(i)
 	}
 	h.logger.Info("Awareness worker pool started", zap.Int("workers", n))
+}
+
+// startStreamWorkers launches n goroutines that consume from streamQueue
+// and add messages to Redis Streams for durability and replay.
+func (h *Hub) startStreamWorkers(n int) {
+	for i := 0; i < n; i++ {
+		go func(workerID int) {
+			for {
+				select {
+				case <-h.streamDone:
+					h.logger.Info("Stream worker exiting", zap.Int("worker_id", workerID))
+					return
+				case msg, ok := <-h.streamQueue:
+					if !ok {
+						return
+					}
+					h.addToStream(msg)
+				}
+			}
+		}(i)
+	}
+	h.logger.Info("Stream worker pool started", zap.Int("workers", n))
+}
+
+// encodeBase64 encodes binary data to base64 string for Redis storage
+func encodeBase64(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
+}
+
+// addToStream adds a message to Redis Streams for durability
+func (h *Hub) addToStream(msg *Message) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	streamKey := "stream:" + msg.RoomID
+
+	// Get next sequence number atomically
+	seqKey := "seq:" + msg.RoomID
+	seq, err := h.messagebus.Incr(ctx, seqKey)
+	if err != nil {
+		h.logger.Error("Failed to increment sequence",
+			zap.String("room_id", msg.RoomID),
+			zap.Error(err))
+		return
+	}
+
+	// Encode payload as base64 (binary-safe storage)
+	payload := encodeBase64(msg.Data)
+
+	// Extract Yjs message type from first byte as numeric string
+	msgType := "0"
+	if len(msg.Data) > 0 {
+		msgType = strconv.Itoa(int(msg.Data[0]))
+	}
+
+	// Add entry to Stream with MAXLEN trimming
+	values := map[string]interface{}{
+		"type":        "update",
+		"server_id":   h.serverID,
+		"yjs_payload": payload,
+		"msg_type":    msgType,
+		"seq":         seq,
+		"timestamp":   time.Now().Format(time.RFC3339),
+	}
+
+	_, err = h.messagebus.XAdd(ctx, streamKey, 10000, true, values)
+	if err != nil {
+		h.logger.Error("Failed to add to Stream",
+			zap.String("stream_key", streamKey),
+			zap.Int64("seq", seq),
+			zap.Error(err))
+		return
+	}
+
+	// Mark this document as active so the persist worker only processes active streams
+	_ = h.messagebus.ZAdd(ctx, "active-streams", float64(time.Now().Unix()), msg.RoomID)
 }
 
 func (h *Hub) Run() {
@@ -471,6 +565,7 @@ func (h *Hub) broadcastMessage(message *Message) {
 	// 只有本地客户端发出的消息 (sender != nil) 才推送到 Redis
 	// P0 fix: send to bounded worker pool instead of spawning unbounded goroutines
 	if message.sender != nil && !h.fallbackMode && h.messagebus != nil {
+		// 3a. Publish to Pub/Sub (real-time cross-server broadcast)
 		select {
 		case h.publishQueue <- message:
 			// Successfully queued for async publish by worker pool
@@ -478,6 +573,19 @@ func (h *Hub) broadcastMessage(message *Message) {
 			// Queue full — drop to protect the system (same pattern as broadcastToLocalClients)
 			h.logger.Warn("Publish queue full, dropping Redis publish",
 				zap.String("room_id", message.RoomID))
+		}
+
+		// 3b. Add to Stream for durability (only Type 0 updates, not Type 1 awareness)
+		// Type 0 = Yjs sync/update messages (document changes)
+		// Type 1 = Yjs awareness messages (cursors, presence) - ephemeral, skip
+		if len(message.Data) > 0 && message.Data[0] == 0 {
+			select {
+			case h.streamQueue <- message:
+				// Successfully queued for async Stream add
+			default:
+				h.logger.Warn("Stream queue full, dropping durability",
+					zap.String("room_id", message.RoomID))
+			}
 		}
 	}
 }
@@ -504,10 +612,28 @@ func (h *Hub) broadcastToLocalClients(room *Room, data []byte, sender *Client) {
 	}
 }
 func (h *Hub) startRoomMessageForwarding(ctx context.Context, roomID string, msgChan <-chan []byte) {
-	h.logger.Info("Starting message forwarding from Redis to room",
-		zap.String("room_id", roomID),
-		zap.String("server_id", h.serverID),
-	)
+	// Increment and log reconnection count for debugging
+	h.mu.RLock()
+	room, exists := h.rooms[roomID]
+	h.mu.RUnlock()
+
+	if exists {
+		room.mu.Lock()
+		room.reconnectCount++
+		reconnectCount := room.reconnectCount
+		room.mu.Unlock()
+
+		h.logger.Info("Starting message forwarding from Redis to room",
+			zap.String("room_id", roomID),
+			zap.String("server_id", h.serverID),
+			zap.Int("reconnect_count", reconnectCount),
+		)
+	} else {
+		h.logger.Info("Starting message forwarding from Redis to room",
+			zap.String("room_id", roomID),
+			zap.String("server_id", h.serverID),
+		)
+	}
 
 	for {
 		select {
@@ -791,10 +917,26 @@ func NewClient(id string, userID *uuid.UUID, userName string, userAvatar *string
 		UserAvatar:     userAvatar,
 		Permission:     permission,
 		Conn:           conn,
-		send:           make(chan []byte, 1024),
+		send:           make(chan []byte, 8192),
 		hub:            hub,
 		roomID:         roomID,
 		observedYjsIDs: make(map[uint64]uint64),
+	}
+}
+
+// Enqueue sends a message to the client send buffer (non-blocking).
+// Returns false if the buffer is full.
+func (c *Client) Enqueue(message []byte) bool {
+	select {
+	case c.send <- message:
+		return true
+	default:
+		if c.hub != nil && c.hub.logger != nil {
+			c.hub.logger.Warn("Client send buffer full during replay",
+				zap.String("client_id", c.ID),
+				zap.String("room_id", c.roomID))
+		}
+		return false
 	}
 }
 func (c *Client) unregister() {
