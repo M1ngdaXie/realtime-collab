@@ -57,7 +57,7 @@ func NewAuthHandler(store store.Store, cfg *config.Config) *AuthHandler {
 func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 	// Generate random state and set cookie
 	oauthState := h.generateStateOauthCookie(c.Writer)
-	url := h.googleConfig.AuthCodeURL(oauthState, oauth2.AccessTypeOffline)
+	url := h.googleConfig.AuthCodeURL(oauthState, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
