@@ -105,3 +105,36 @@
   transform: translateY(0);
   box-shadow: var(--shadow-sm);
 }
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: hsl(var(--border));
+}
+
+.login-divider span {
+  font-size: 13px;
+  color: hsl(var(--text-secondary));
+  white-space: nowrap;
+}
+
+.guest-button {
+  background: transparent;
+  border: 1px dashed hsl(var(--border));
+  color: hsl(var(--text-secondary));
+}
+
+.guest-button:hover {
+  background: hsl(var(--surface-hover, var(--border) / 0.1));
+  color: hsl(var(--text-primary));
+  border-style: solid;
+}

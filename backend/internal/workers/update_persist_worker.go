@@ -99,7 +99,9 @@ func runUpdatePersistWorker(ctx context.Context, msgBus messagebus.MessageBus, d
 				return
 			}
 		case <-heartbeatTicker.C:
-			logWorker(logger, "Update persist worker heartbeat", zap.String("server_id", serverID))
+			if logger != nil {
+				logger.Debug("Update persist worker heartbeat", zap.String("server_id", serverID))
+			}
 		case <-ticker.C:
 			if err := processUpdatePersistence(ctx, msgBus, dbStore, logger, serverID); err != nil {
 				logWorker(logger, "Update persist worker tick failed", zap.Error(err))

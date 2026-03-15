@@ -1,15 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { guestLogin } from '../api/auth';
 import { API_BASE_URL } from '../config';
 import DocNestLogo from '../assets/docnest/docnest-icon-128.png';
 import ThemeToggle from '../components/ThemeToggle';
 import './LoginPage.css';
 
 function LoginPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [guestLoading, setGuestLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -20,7 +22,7 @@ function LoginPage() {
   const saveRedirectAndGo = (oauthUrl: string) => {
     const redirect = searchParams.get('redirect');
     if (redirect) {
-      sessionStorage.setItem('oauth_redirect', redirect);
+      sessionStorage.setItem('oauth_redirect', decodeURIComponent(redirect));
     }
     window.location.href = oauthUrl;
   };
@@ -31,6 +33,20 @@ function LoginPage() {
 
   const handleGitHubLogin = () => {
     saveRedirectAndGo(`${API_BASE_URL}/auth/github`);
+  };
+
+  const handleGuestLogin = async () => {
+    try {
+      setGuestLoading(true);
+      const token = await guestLogin();
+      await login(token);
+      const redirect = searchParams.get('redirect');
+      navigate(redirect ? decodeURIComponent(redirect) : '/');
+    } catch (err) {
+      console.error('Guest login failed:', err);
+    } finally {
+      setGuestLoading(false);
+    }
   };
 
   if (loading) {
@@ -92,6 +108,18 @@ function LoginPage() {
               />
             </svg>
             Continue with GitHub
+          </button>
+
+          <div className="login-divider">
+            <span></span>
+          </div>
+
+          <button
+            className="login-button guest-button"
+            onClick={handleGuestLogin}
+            disabled={guestLoading}
+          >
+            {guestLoading ? 'Entering...' : 'Continue as Guest'}
           </button>
         </div>
       </div>

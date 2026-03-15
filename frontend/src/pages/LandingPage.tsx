@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { guestLogin } from '../api/auth';
 import FloatingGem from '../components/PixelSprites/FloatingGem';
 import PixelIcon from '../components/PixelIcon/PixelIcon';
 import DocNestLogo from '../assets/docnest/docnest-icon-128.png';
@@ -6,12 +10,29 @@ import { API_BASE_URL } from '../config';
 import './LandingPage.css';
 
 function LandingPage() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [guestLoading, setGuestLoading] = useState(false);
+
   const handleGoogleLogin = () => {
     window.location.href = `${API_BASE_URL}/auth/google`;
   };
 
   const handleGitHubLogin = () => {
     window.location.href = `${API_BASE_URL}/auth/github`;
+  };
+
+  const handleGuestLogin = async () => {
+    try {
+      setGuestLoading(true);
+      const token = await guestLogin();
+      await login(token);
+      navigate('/');
+    } catch (err) {
+      console.error('Guest login failed:', err);
+    } finally {
+      setGuestLoading(false);
+    }
   };
 
   return (
@@ -61,6 +82,13 @@ function LandingPage() {
                   <span>Continue with GitHub</span>
                 </button>
               </div>
+              <button
+                className="landing-login-button guest"
+                onClick={handleGuestLogin}
+                disabled={guestLoading}
+              >
+                {guestLoading ? 'Entering...' : 'Try as Guest'}
+              </button>
               <p className="hero-note">No credit card required.</p>
             </div>
           </div>

@@ -141,6 +141,19 @@
   background: hsl(var(--surface));
 }
 
+.landing-login-button.guest {
+  background: transparent;
+  border: 1px dashed hsl(var(--border));
+  color: hsl(var(--text-secondary));
+  font-size: 0.9rem;
+  padding: 0.6rem 1.5rem;
+}
+
+.landing-login-button.guest:hover {
+  color: hsl(var(--text-primary));
+  border-style: solid;
+}
+
 .landing-login-button.large {
   padding: 1rem 2rem;
   font-size: 1.05rem;

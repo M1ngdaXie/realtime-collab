@@ -1,6 +1,15 @@
 import type { User } from '../types/auth';
 import { API_BASE_URL, authFetch } from './client';
 
+export async function guestLogin(): Promise<string> {
+  const res = await fetch(`${API_BASE_URL}/auth/guest`, { method: 'POST' });
+  if (!res.ok) {
+    throw new Error('Failed to create guest session');
+  }
+  const data = await res.json();
+  return data.token;
+}
+
 export const authApi = {
   getCurrentUser: async (): Promise<User> => {
     const response = await authFetch(`${API_BASE_URL}/auth/me`);

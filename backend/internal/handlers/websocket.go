@@ -108,7 +108,7 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 			// Validate share token
 			valid, err := wsh.store.ValidateShareToken(c.Request.Context(), documentID, shareToken)
 			if err != nil {
-				log.Printf("Error validating share token: %v", err)
+				// Error validating share token
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate share token"})
 				return
 			}
@@ -134,7 +134,7 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 		// Authenticated user - get their permission level
 		perm, err := wsh.store.GetUserPermission(c.Request.Context(), documentID, *userID)
 		if err != nil {
-			log.Printf("Error getting user permission: %v", err)
+			// Error getting user permission
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check permissions"})
 			return
 		}
@@ -147,7 +147,7 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 		// Share token user - get share link permission
 		perm, err := wsh.store.GetShareLinkPermission(c.Request.Context(), documentID)
 		if err != nil {
-			log.Printf("Error getting share link permission: %v", err)
+			// Error getting share link permission
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check permissions"})
 			return
 		}
@@ -163,7 +163,7 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 	upgrader := wsh.getUpgrader()
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Printf("Failed to upgrade connection: %v", err)
+		// Failed to upgrade WebSocket connection
 		return
 	}
 
@@ -179,7 +179,7 @@ func (wsh *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 	go client.ReadPump()
 	go wsh.replayBacklog(client, documentID)
 
-	log.Printf("Client connected: %s (user: %s) to room: %s", clientID, userName, roomID)
+	// Client connected
 }
 
 const maxReplayUpdates = 5000

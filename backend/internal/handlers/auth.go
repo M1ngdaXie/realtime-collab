@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+
 	"net/http"
 	"time"
 
@@ -68,7 +68,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid oauth state"})
 		return
 	}
-	log.Println("Google callback state:", c.Query("state"))
+
 	// Exchange code for token
 	token, err := h.googleConfig.Exchange(c.Request.Context(), c.Query("code"))
 	if err != nil {
@@ -83,8 +83,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
 		return
 	}
-	log.Println("Google user info response status:", resp.Status)
-	log.Println("Google user info response headers:", resp.Header)
+
 	defer resp.Body.Close()
 
 	data, _ := io.ReadAll(resp.Body)
@@ -96,11 +95,11 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	if err := json.Unmarshal(data, &userInfo); err != nil {
-		log.Printf("Failed to parse Google response: %v | Data: %s", err, string(data))
+		// Failed to parse Google response
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid Google response"})
 		return
 	}
-	log.Println("Google user info:", userInfo)
+
 	// Upsert user in database
 	user, err := h.store.UpsertUser(
 		c.Request.Context(),
@@ -116,12 +115,9 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	// Create session and JWT
-	jwt, err := h.createSessionAndJWT(c, user)
+	jwt, err := h.createSessionAndJWT(c, user, 7*24*time.Hour)
 	if err != nil {
-		fmt.Printf("❌ DATABASE ERROR: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": fmt.Sprintf("CreateSession Error: %v", err),
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
 		return
 	}
 
@@ -144,7 +140,7 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid oauth state"})
 		return
 	}
-	log.Println("Github callback state:", c.Query("state"))
+
 	code := c.Query("code")
 	if code == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No code provided"})
@@ -178,7 +174,7 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 		AvatarURL string `json:"avatar_url"`
 	}
 	if err := json.Unmarshal(data, &userInfo); err != nil {
-		log.Printf("Failed to parse GitHub response: %v | Data: %s", err, string(data))
+		// Failed to parse GitHub response
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid GitHub response"})
 		return
 	}
@@ -207,8 +203,7 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 	if userInfo.Name == "" {
 		userInfo.Name = userInfo.Login
 	}
-	fmt.Println("Getting user info : ")
-	fmt.Println(userInfo)
+
 	// Upsert user in database
 	user, err := h.store.UpsertUser(
 		c.Request.Context(),
@@ -224,7 +219,7 @@ func (h *AuthHandler) GithubCallback(c *gin.Context) {
 	}
 
 	// Create session and JWT
-	jwt, err := h.createSessionAndJWT(c, user)
+	jwt, err := h.createSessionAndJWT(c, user, 7*24*time.Hour)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
 		return
@@ -273,12 +268,47 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }
 
+// GuestLogin creates a temporary guest user and returns a JWT
+func (h *AuthHandler) GuestLogin(c *gin.Context) {
+	// Generate random 4-byte hex string for guest ID
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate guest ID"})
+		return
+	}
+	guestHex := fmt.Sprintf("%x", b)
+	guestName := fmt.Sprintf("Guest-%s", guestHex)
+	guestEmail := fmt.Sprintf("guest-%s@guest.local", guestHex)
+	providerUserID := uuid.New().String()
+
+	user, err := h.store.UpsertUser(
+		c.Request.Context(),
+		"guest",
+		providerUserID,
+		guestEmail,
+		guestName,
+		nil,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create guest user"})
+		return
+	}
+
+	jwt, err := h.createSessionAndJWT(c, user, 24*time.Hour)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": jwt})
+}
+
 // Helper: create session and JWT
-func (h *AuthHandler) createSessionAndJWT(c *gin.Context, user *models.User) (string, error) {
-	expiresAt := time.Now().Add(7 * 24 * time.Hour) // 7 days
+func (h *AuthHandler) createSessionAndJWT(c *gin.Context, user *models.User, expiry time.Duration) (string, error) {
+	expiresAt := time.Now().Add(expiry)
 
 	// Generate JWT first (we need it for session) - now includes avatar URL
-	jwt, err := auth.GenerateJWT(user.ID, user.Name, user.Email, user.AvatarURL, h.cfg.JWTSecret, 7*24*time.Hour)
+	jwt, err := auth.GenerateJWT(user.ID, user.Name, user.Email, user.AvatarURL, h.cfg.JWTSecret, expiry)
 	if err != nil {
 		return "", err
 	}
@@ -306,7 +336,7 @@ func (h *AuthHandler) generateStateOauthCookie(w http.ResponseWriter) string {
 	b := make([]byte, 16)
 	n, err := rand.Read(b)
 	if err != nil || n != 16 {
-		fmt.Printf("Failed to generate random state: %v\n", err)
+		// Failed to generate random state
 		return "" // Critical for CSRF security
 	}
 	state := base64.URLEncoding.EncodeToString(b)

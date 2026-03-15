@@ -204,6 +204,7 @@ func main() {
         authGroup.GET("/google/callback", authHandler.GoogleCallback)
         authGroup.GET("/github", authHandler.GithubLogin)
         authGroup.GET("/github/callback", authHandler.GithubCallback)
+        authGroup.POST("/guest", authHandler.GuestLogin)
         authGroup.GET("/me", authMiddleware.RequireAuth(), authHandler.Me)
         authGroup.POST("/logout", authMiddleware.RequireAuth(), authHandler.Logout)
     }

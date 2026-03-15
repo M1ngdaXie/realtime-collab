@@ -31,7 +31,7 @@ function ShareModal({
   const [permission, setPermission] = useState<'view' | 'edit'>('view');
 
   // Form state for link sharing
-  const [linkPermission, setLinkPermission] = useState<'view' | 'edit'>('view');
+  const [linkPermission, setLinkPermission] = useState<'view' | 'edit'>('edit');
   const [copied, setCopied] = useState(false);
 
   // Load shares on mount
