@@ -15,9 +15,10 @@ function LoginPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/');
+      const redirect = searchParams.get('redirect');
+      navigate(redirect ? decodeURIComponent(redirect) : '/');
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, searchParams]);
 
   const saveRedirectAndGo = (oauthUrl: string) => {
     const redirect = searchParams.get('redirect');
