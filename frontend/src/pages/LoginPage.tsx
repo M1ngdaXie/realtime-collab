@@ -40,7 +40,8 @@ function LoginPage() {
       setGuestLoading(true);
       const token = await guestLogin();
       await login(token);
-      const redirect = searchParams.get('redirect');
+      const redirect = searchParams.get('redirect') || sessionStorage.getItem('oauth_redirect');
+      sessionStorage.removeItem('oauth_redirect');
       navigate(redirect ? decodeURIComponent(redirect) : '/');
     } catch (err) {
       console.error('Guest login failed:', err);
