@@ -265,3 +265,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_update_history_document_seq
 
 CREATE INDEX IF NOT EXISTS idx_update_history_document_seq
     ON document_update_history(document_id, seq);
+
+-- Add 'guest' as a valid provider for guest mode login
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_provider_check;
+ALTER TABLE users ADD CONSTRAINT users_provider_check CHECK (provider IN ('google', 'github', 'guest'));

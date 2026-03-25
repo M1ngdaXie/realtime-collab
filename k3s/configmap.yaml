@@ -1,0 +1,178 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-sql
+data:
+  init.sql: |
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+    CREATE TABLE IF NOT EXISTS documents (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(50) NOT NULL CHECK (type IN ('editor', 'kanban')),
+        yjs_state BYTEA,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX idx_documents_type ON documents(type);
+    CREATE INDEX idx_documents_created_at ON documents(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS document_updates (
+        id SERIAL PRIMARY KEY,
+        document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        update BYTEA NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX idx_updates_document_id ON document_updates(document_id);
+    CREATE INDEX idx_updates_created_at ON document_updates(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        email VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        avatar_url TEXT,
+        provider VARCHAR(50) NOT NULL CHECK (provider IN ('google', 'github', 'guest')),
+        provider_user_id VARCHAR(255) NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        last_login_at TIMESTAMPTZ,
+        UNIQUE(provider, provider_user_id)
+    );
+
+    CREATE INDEX idx_users_email ON users(email);
+    CREATE INDEX idx_users_provider ON users(provider, provider_user_id);
+
+    CREATE TABLE IF NOT EXISTS sessions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(64) NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        user_agent TEXT,
+        ip_address VARCHAR(45),
+        UNIQUE(token_hash)
+    );
+
+    CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+    CREATE INDEX idx_sessions_token_hash ON sessions(token_hash);
+    CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES users(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS idx_documents_owner_id ON documents(owner_id);
+
+    CREATE TABLE IF NOT EXISTS document_shares (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        permission VARCHAR(20) NOT NULL CHECK (permission IN ('view', 'edit')),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        UNIQUE(document_id, user_id)
+    );
+
+    CREATE INDEX idx_shares_document_id ON document_shares(document_id);
+    CREATE INDEX idx_shares_user_id ON document_shares(user_id);
+    CREATE INDEX idx_shares_permission ON document_shares(document_id, permission);
+
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS share_token VARCHAR(255);
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT false NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_documents_share_token ON documents(share_token) WHERE share_token IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_documents_is_public ON documents(is_public) WHERE is_public = true;
+
+    ALTER TABLE documents ADD CONSTRAINT check_public_has_token
+        CHECK (is_public = false OR (is_public = true AND share_token IS NOT NULL));
+
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS share_permission VARCHAR(20) DEFAULT 'edit' CHECK (share_permission IN ('view', 'edit'));
+    CREATE INDEX IF NOT EXISTS idx_documents_share_permission ON documents(share_permission) WHERE is_public = true;
+
+    CREATE TABLE IF NOT EXISTS oauth_tokens (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider VARCHAR(50) NOT NULL,
+        access_token TEXT NOT NULL,
+        refresh_token TEXT,
+        token_type VARCHAR(50) DEFAULT 'Bearer',
+        expires_at TIMESTAMPTZ NOT NULL,
+        scope TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT oauth_tokens_user_id_provider_key UNIQUE (user_id, provider)
+    );
+
+    CREATE INDEX idx_oauth_tokens_user_id ON oauth_tokens(user_id);
+
+    CREATE TABLE IF NOT EXISTS document_versions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        yjs_snapshot BYTEA NOT NULL,
+        text_preview TEXT,
+        version_number INTEGER NOT NULL,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        version_label TEXT,
+        is_auto_generated BOOLEAN DEFAULT true,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT unique_document_version UNIQUE(document_id, version_number)
+    );
+
+    CREATE INDEX idx_document_versions_document_id ON document_versions(document_id, created_at DESC);
+    CREATE INDEX idx_document_versions_created_by ON document_versions(created_by);
+
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS version_count INTEGER DEFAULT 0;
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS last_snapshot_at TIMESTAMPTZ;
+
+    CREATE OR REPLACE FUNCTION get_next_version_number(p_document_id UUID)
+    RETURNS INTEGER AS $$
+    DECLARE
+        next_version INTEGER;
+    BEGIN
+        SELECT COALESCE(MAX(version_number), 0) + 1
+        INTO next_version
+        FROM document_versions
+        WHERE document_id = p_document_id;
+        RETURN next_version;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE oauth_tokens ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE document_updates ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE document_shares ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE document_versions ENABLE ROW LEVEL SECURITY;
+
+    CREATE POLICY "Allow all operations on users" ON users FOR ALL USING (true);
+    CREATE POLICY "Allow all operations on sessions" ON sessions FOR ALL USING (true);
+    CREATE POLICY "Allow all operations on oauth_tokens" ON oauth_tokens FOR ALL USING (true);
+    CREATE POLICY "Allow all operations on documents" ON documents FOR ALL USING (true);
+    CREATE POLICY "Allow all operations on document_updates" ON document_updates FOR ALL USING (true);
+    CREATE POLICY "Allow all operations on document_shares" ON document_shares FOR ALL USING (true);
+    CREATE POLICY "Allow all operations on document_versions" ON document_versions FOR ALL USING (true);
+
+    CREATE TABLE IF NOT EXISTS stream_checkpoints (
+        document_id UUID PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+        last_stream_id TEXT NOT NULL,
+        last_seq BIGINT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_stream_checkpoints_updated_at ON stream_checkpoints(updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS document_update_history (
+        id BIGSERIAL PRIMARY KEY,
+        document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        stream_id TEXT NOT NULL,
+        seq BIGINT NOT NULL,
+        payload BYTEA NOT NULL,
+        msg_type TEXT,
+        server_id TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS uniq_update_history_document_stream_id ON document_update_history(document_id, stream_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uniq_update_history_document_seq ON document_update_history(document_id, seq);
+    CREATE INDEX IF NOT EXISTS idx_update_history_document_seq ON document_update_history(document_id, seq);

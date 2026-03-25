@@ -40,3 +40,6 @@ postgres_data/
 loadtest/pprof
 
 /docs
+
+# K3s secrets
+k3s/secret.yaml
