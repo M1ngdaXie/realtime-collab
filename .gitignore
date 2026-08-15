@@ -42,4 +42,6 @@ loadtest/pprof
 /docs
 
 # K3s secrets
-k3s/secret.yaml.playwright-mcp/
+k3s/secret.yaml
+
+.playwright-mcp/
