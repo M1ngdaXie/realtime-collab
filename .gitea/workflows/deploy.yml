@@ -29,6 +29,14 @@ jobs:
 
       - name: Build frontend
         working-directory: frontend
+        env:
+          # frontend/.env.local holds these for the manually-maintained
+          # /root/realtime-collab checkout, but it's gitignored, so this
+          # actions/checkout-based workspace never has it — without setting
+          # them here, Vite silently falls back to the localhost dev
+          # defaults and bakes a broken API URL into the production bundle.
+          VITE_API_URL: https://collab.m1ngdaxie.com/api
+          VITE_WS_URL: wss://collab.m1ngdaxie.com/ws
         run: |
           npm ci
           npm run build

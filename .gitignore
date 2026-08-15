@@ -40,3 +40,5 @@ postgres_data/
 loadtest/pprof
 
 /docs
+
+.playwright-mcp/
