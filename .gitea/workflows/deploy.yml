@@ -15,6 +15,13 @@ jobs:
       - name: Build backend image
         run: docker build -t realtime-collab-backend:latest ./backend
 
+      - name: Import image into k3s containerd
+        # docker build only populates the Docker daemon's store; k3s runs its
+        # own containerd (imagePullPolicy: Never, never pulls a registry), so
+        # the image must be explicitly imported or the pod keeps running
+        # whatever was last imported.
+        run: docker save realtime-collab-backend:latest | k3s ctr -n k8s.io images import -
+
       - name: Roll out backend
         run: |
           kubectl rollout restart deployment/realtime-collab-backend
