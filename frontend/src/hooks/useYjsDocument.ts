@@ -17,7 +17,7 @@ export const useYjsDocument = (documentId: string, shareToken?: string) => {
   const [role, setRole] = useState<string | null>(null);
 
   // Enable auto-save when providers are ready
-  useAutoSave(documentId, providers?.ydoc || null);
+  useAutoSave(documentId, providers?.ydoc || null, shareToken);
 
   // Fetch permission when component mounts
   useEffect(() => {

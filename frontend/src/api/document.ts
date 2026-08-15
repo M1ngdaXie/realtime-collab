@@ -64,12 +64,16 @@ export const documentsApi = {
   },
 
   // Update document Yjs state
-  updateState: async (id: string, state: Uint8Array): Promise<void> => {
+  updateState: async (id: string, state: Uint8Array, shareToken?: string): Promise<void> => {
     // Create a new ArrayBuffer copy to ensure compatibility
     const buffer = new ArrayBuffer(state.byteLength);
     new Uint8Array(buffer).set(state);
 
-    const response = await authFetch(`${API_BASE_URL}/documents/${id}/state`, {
+    const url = shareToken
+      ? `${API_BASE_URL}/documents/${id}/state?share=${shareToken}`
+      : `${API_BASE_URL}/documents/${id}/state`;
+
+    const response = await authFetch(url, {
       method: "PUT",
       headers: { "Content-Type": "application/octet-stream" },
       body: buffer,

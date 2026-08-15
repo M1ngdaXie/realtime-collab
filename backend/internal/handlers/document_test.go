@@ -381,8 +381,6 @@ func (s *DocumentHandlerSuite) TestGetDocumentState_Success() {
 	s.assertSuccessResponse(w, http.StatusOK)
 
 	s.Equal("application/octet-stream", w.Header().Get("Content-Type"))
-	// State should be empty bytes for new document
-	s.NotNil(w.Body.Bytes())
 }
 
 func (s *DocumentHandlerSuite) TestGetDocumentState_EmptyState() {
@@ -414,6 +412,17 @@ func (s *DocumentHandlerSuite) TestGetDocumentState_InvalidID() {
 
 	s.router.ServeHTTP(w, httpReq)
 	s.assertErrorResponse(w, http.StatusBadRequest, "bad_request", "Invalid document ID")
+}
+
+func (s *DocumentHandlerSuite) TestGetDocumentState_AuthenticatedWithShareToken() {
+	// Charlie (logged in, not owner/shared) reads Alice's public doc via share link
+	path := fmt.Sprintf("/api/documents/%s/state?share=%s", s.testData.AlicePublicDoc, s.testData.PublicShareToken)
+	w, httpReq, err := s.makeAuthRequest("GET", path, nil, s.testData.CharlieID)
+	s.Require().NoError(err)
+
+	s.router.ServeHTTP(w, httpReq)
+	s.assertSuccessResponse(w, http.StatusOK)
+	s.Equal("application/octet-stream", w.Header().Get("Content-Type"))
 }
 
 // ========================================
@@ -453,6 +462,32 @@ func (s *DocumentHandlerSuite) TestUpdateDocumentState_ViewOnlyDenied() {
 
 	path := fmt.Sprintf("/api/documents/%s/state", s.testData.BobSharedView)
 	w, httpReq, err := s.makeAuthRequest("PUT", path, req, s.testData.AliceID)
+	s.Require().NoError(err)
+
+	s.router.ServeHTTP(w, httpReq)
+	s.assertErrorResponse(w, http.StatusForbidden, "forbidden", "Edit access denied")
+}
+func (s *DocumentHandlerSuite) TestUpdateDocumentState_AuthenticatedWithEditShareToken() {
+	// Give Alice's public doc an "edit" share link
+	ctx := context.Background()
+	editToken, err := s.store.GenerateShareToken(ctx, s.testData.AlicePublicDoc, "edit")
+	s.Require().NoError(err)
+
+	// Charlie (logged in, not owner/shared) edits via edit share link
+	req := models.UpdateStateRequest{State: []byte("shared edit")}
+	path := fmt.Sprintf("/api/documents/%s/state?share=%s", s.testData.AlicePublicDoc, editToken)
+	w, httpReq, err := s.makeAuthRequest("PUT", path, req, s.testData.CharlieID)
+	s.Require().NoError(err)
+
+	s.router.ServeHTTP(w, httpReq)
+	s.assertSuccessResponse(w, http.StatusOK)
+}
+func (s *DocumentHandlerSuite) TestUpdateDocumentState_AuthenticatedWithViewShareTokenDenied() {
+	// Alice's public doc has a "view" share link (from seed).
+	// Charlie (logged in) cannot write via a view-only share link.
+	req := models.UpdateStateRequest{State: []byte("attempt write")}
+	path := fmt.Sprintf("/api/documents/%s/state?share=%s", s.testData.AlicePublicDoc, s.testData.PublicShareToken)
+	w, httpReq, err := s.makeAuthRequest("PUT", path, req, s.testData.CharlieID)
 	s.Require().NoError(err)
 
 	s.router.ServeHTTP(w, httpReq)

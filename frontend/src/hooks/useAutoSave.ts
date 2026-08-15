@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as Y from 'yjs';
 import { documentsApi } from '../api/document';
 
-export const useAutoSave = (documentId: string, ydoc: Y.Doc | null) => {
+export const useAutoSave = (documentId: string, ydoc: Y.Doc | null, shareToken?: string) => {
   const saveTimeoutRef = useRef<number | null>(null);
   const isSavingRef = useRef(false);
 
@@ -25,7 +25,7 @@ export const useAutoSave = (documentId: string, ydoc: Y.Doc | null) => {
         isSavingRef.current = true;
         try {
           const state = Y.encodeStateAsUpdate(ydoc);
-          await documentsApi.updateState(documentId, state);
+          await documentsApi.updateState(documentId, state, shareToken);
           console.log('✓ Document saved to database');
         } catch (error) {
           console.error('Failed to save document:', error);
@@ -44,5 +44,5 @@ export const useAutoSave = (documentId: string, ydoc: Y.Doc | null) => {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [documentId, ydoc]);
+  }, [documentId, ydoc, shareToken]);
 };
