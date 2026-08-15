@@ -137,6 +137,15 @@ func (h *DocumentHandler) GetDocumentState(c *gin.Context) {
 			respondInternalError(c, "Failed to check permissions", err)
 			return
 		}
+		if !canView && shareToken != "" {
+			// Logged-in user without personal permission: fall back to share link
+			valid, err := h.store.ValidateShareToken(c.Request.Context(), id, shareToken)
+			if err != nil {
+				respondInternalError(c, "Failed to validate share token", err)
+				return
+			}
+			canView = valid
+		}
 		if !canView {
 			respondForbidden(c, "Access denied")
 			return
@@ -189,11 +198,27 @@ func (h *DocumentHandler) UpdateDocumentState(c *gin.Context) {
 		return
 	}
 
-	// Check edit permission
+	// Check edit permission (personal share OR edit-level share link)
+	shareToken := c.Query("share")
 	canEdit, err := h.store.CanEditDocument(c.Request.Context(), id, *userID)
 	if err != nil {
 		respondInternalError(c, "Failed to check permissions", err)
 		return
+	}
+	if !canEdit && shareToken != "" {
+		valid, err := h.store.ValidateShareToken(c.Request.Context(), id, shareToken)
+		if err != nil {
+			respondInternalError(c, "Failed to validate share token", err)
+			return
+		}
+		if valid {
+			perm, err := h.store.GetShareLinkPermission(c.Request.Context(), id)
+			if err != nil {
+				respondInternalError(c, "Failed to get token permission", err)
+				return
+			}
+			canEdit = perm == "edit"
+		}
 	}
 	if !canEdit {
 		respondForbidden(c, "Edit access denied")
