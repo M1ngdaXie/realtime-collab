@@ -1,0 +1,30 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest   # hits the host runner (vps-runner) already on this box
+    env:
+      KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t realtime-collab-backend:latest ./backend
+
+      - name: Roll out backend
+        run: |
+          kubectl rollout restart deployment/realtime-collab-backend
+          kubectl rollout status deployment/realtime-collab-backend --timeout=90s
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy frontend
+        run: rsync -a --delete frontend/dist/ /var/www/realtime-collab/
